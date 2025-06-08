@@ -73,51 +73,219 @@ export default function Products() {
   };
 
   return (
-    <section className="pt-[70px] min-h-[100vh]">
-      <h2 className="text-center">제품소개</h2>
-      <div className="sub-title my-4 text-xl text-center">
+    <section className="pt-[70px] min-h-[100vh] bg-slate-900">
+      {/* Title Section */}
+      <div className="py-8 px-8 border-b border-slate-700/50">
+        <div className="text-center">
+          <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
+            제품소개
+          </h2>
+          <div className="text-lg text-gray-300">
         최고의 기술로 국내 직접 생산
+          </div>
+          <div className="w-16 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
+        </div>
       </div>
-      <div className="flex gap-4 my-20 justify-center">
+
+      {/* Products Grid */}
+      <div className="px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
         {productsList.map((part, index) => (
           <div
             key={index}
-            className="flex flex-col w-[250px] items-center cursor-pointer"
+              className="group cursor-pointer"
             onClick={() => selectItem(index)}
           >
-            <div className="bg-white">
-              <img src={part.url} width={200} height={200} alt={part.alt || part.model} style={{ width: '200px', height: '200px' }} />
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/10 hover:border-blue-500/30">
+                <div className="relative mb-6">
+                  <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg p-4 shadow-lg">
+                    <img 
+                      src={part.url} 
+                      width={200} 
+                      height={200} 
+                      alt={part.alt || part.model} 
+                      className="w-full h-48 object-contain transition-transform duration-300 group-hover:scale-110"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-800/20 to-transparent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors duration-300">
+                    {part.model}
+                  </h3>
+                  <p className="text-gray-400 group-hover:text-gray-200 transition-colors duration-300">
+                    {part.kind}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>{part.model}</div>
-            <div className="">{part.kind}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* Selected Product Details or Default Content */}
+      {selectedItem ? (
+        <div className="px-8 py-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                {/* Product Image and Info */}
+                <div className="p-12 flex flex-col justify-center items-center bg-gradient-to-br from-slate-800/20 to-slate-900/20">
+                  <h4 className="text-3xl font-bold text-white mb-8 text-center">
+                    {selectedItem.model}
+                    <span className="block text-lg text-blue-300 mt-2">({selectedItem.kind})</span>
+                  </h4>
+                  <div className="relative">
+                    <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl p-6 shadow-xl">
+                      <img 
+                        width={400} 
+                        height={400} 
+                        src={selectedItem.url} 
+                        alt={selectedItem.alt}
+                        className="w-full h-80 object-contain"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent rounded-xl"></div>
+                  </div>
+                </div>
+
+                {/* Specifications */}
+                <div className="p-8">
+                  <h5 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-3">
+                    제품 사양
+                  </h5>
+                  {selectedItem.spec ? (
+                    <div className="bg-slate-800/20 rounded-lg border border-slate-700/30 overflow-hidden">
+                      <div className="divide-y divide-slate-700/30">
+                        {Object.entries(selectedItem.spec).map(([key, value]) => (
+                          <div key={key} className="px-3 py-2 hover:bg-slate-800/20 transition-colors duration-200">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                              <div className="text-blue-300 font-semibold text-xs uppercase tracking-wide lg:col-span-1">
+                                {key}
+                              </div>
+                              <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-line lg:col-span-2">
+                                {value}
+                              </div>
+                            </div>
           </div>
         ))}
       </div>
-      {
-        selectedItem ? (<div className="pt-40 px-[10%]">
-          <div className="flex flex-row justify-center p-4 bg-slate-700">
-            <div className="flex-1 flex flex-col gap-8 justify-start items-center">
-              <h4>{selectedItem?.model}({selectedItem?.kind})</h4>
-              <img width={400} height={400} src={selectedItem?.url} alt={selectedItem?.alt} style={{ width: '400px', height: '400px' }} />
-            </div>
-            <div className="flex-1">
-              <table>
-                <tbody>
-                {selectedItem?.spec && Object.entries(selectedItem?.spec).map(([key, value]) => (
-                  <tr key={key}>
-                    <td className="px-1 text-left">{key}</td>
-                    <td className="px-1 text-left">{value}</td>
-                  </tr>
-                ))}
-                </tbody>
-              </table>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-center py-8">
+                      제품 사양 정보가 준비 중입니다.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Description */}
+              {selectedItem.desc && (
+                <div className="px-8 pb-8">
+                  <div className="bg-gradient-to-br from-slate-800/30 via-slate-800/20 to-slate-900/30 backdrop-blur-sm rounded-xl border border-slate-700/40 overflow-hidden shadow-lg">
+                    <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 px-6 py-4 border-b border-slate-700/30">
+                      <h5 className="text-xl font-bold text-white flex items-center gap-2">
+                        <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                        제품 설명
+                      </h5>
+                    </div>
+                    <div className="p-6">
+                      <p className="text-gray-300 leading-7 text-base text-left whitespace-pre-line">
+                        {selectedItem.desc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <div className="p-10 leading-[2] text-xl  bg-slate-700 text-left">
-            {selectedItem.desc}
+        </div>
+      ) : (
+        <div className="px-8 py-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                {/* Company Philosophy */}
+                <div className="p-12 flex flex-col justify-center bg-gradient-to-br from-slate-800/20 to-slate-900/20">
+                  <div className="text-center">
+                    <h4 className="text-3xl font-bold text-white mb-8">
+                      The Sound
+                      <span className="block text-lg text-blue-300 mt-2">Professional Audio Solutions</span>
+                    </h4>
+                    <div className="relative mx-auto w-64 h-64 mb-8">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-cyan-500/20 rounded-full blur-3xl"></div>
+                      <div className="relative bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-full p-8 border border-slate-600/30 flex items-center justify-center">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 flex items-center justify-center border-2 border-blue-400/50">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                            <div className="w-8 h-8 bg-white rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product Information */}
+                <div className="p-12">
+                  <h5 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-3">
+                    제품 선택 안내
+                  </h5>
+                  <div className="space-y-6">
+                    <div className="bg-slate-800/20 rounded-lg p-6 border border-slate-700/30 relative overflow-hidden">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-blue-600"></div>
+                      <h6 className="text-lg font-semibold text-white mb-3 pl-4">
+                        PRODUCT SELECTION
+                      </h6>
+                      <p className="text-gray-300 text-sm leading-relaxed pl-4">
+                        위의 제품 카드를 클릭하시면 상세한 제품 정보와 사양을 확인하실 수 있습니다.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-slate-800/20 rounded-lg p-6 border border-slate-700/30 relative overflow-hidden">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-purple-600"></div>
+                      <h6 className="text-lg font-semibold text-white mb-3 pl-4">
+                        CUSTOMIZED SOLUTION
+                      </h6>
+                      <p className="text-gray-300 text-sm leading-relaxed pl-4">
+                        모든 제품은 고객의 요구사항에 맞춰 설계 및 제작되며, 최고 품질의 부품만을 사용합니다.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-800/20 rounded-lg p-6 border border-slate-700/30 relative overflow-hidden">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-cyan-600"></div>
+                      <h6 className="text-lg font-semibold text-white mb-3 pl-4">
+                        MADE IN KOREA
+                      </h6>
+                      <p className="text-gray-300 text-sm leading-relaxed pl-4">
+                        국내 직접 생산을 통한 엄격한 품질 관리로 최상의 성능과 신뢰성을 보장합니다.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Company Values */}
+              <div className="px-8 pb-8">
+                <div className="bg-gradient-to-br from-slate-800/30 via-slate-800/20 to-slate-900/30 backdrop-blur-sm rounded-xl border border-slate-700/40 overflow-hidden shadow-lg">
+                  <div className="bg-gradient-to-r from-blue-600/10 to-purple-600/10 px-6 py-4 border-b border-slate-700/30">
+                    <h5 className="text-xl font-bold text-white flex items-center gap-2">
+                      <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+                      COMPANY COMMITMENT
+                    </h5>
+                  </div>
+                  <div className="p-6">
+                    <p className="text-gray-300 leading-7 text-base text-left">
+                      The Sound는 음향, 영상, 조명, LED 분야의 전문 시공 업체로서 고객의 꿈과 비전을 현실로 만들어 드립니다. 
+                      최첨단 기술과 풍부한 경험을 바탕으로 한 맞춤형 솔루션 제공을 통해 고객 만족을 최우선으로 하며, 
+                      지속적인 연구개발과 품질 향상을 통해 업계 최고 수준의 서비스를 제공하겠습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>): <div></div>
-      }
+          </div>
+      )}
     </section>
   );
 }

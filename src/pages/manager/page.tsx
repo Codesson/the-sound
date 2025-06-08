@@ -19,7 +19,8 @@ export default function Manager() {
         })
     }, [])
 
-    return <div className="flex justify-center align-middle h-full">
+    return (
+        <div className="flex justify-center align-middle h-full">
         <div className="w-80 text-center">
             <h4 className="mb-10 w-full">관리자 시스템</h4>
             <form onSubmit={onSubmit}>
@@ -29,7 +30,7 @@ export default function Manager() {
                 </div>
                 <button type="submit">로그인</button>
             </form>
-
         </div>
     </div>
+    )
 }
