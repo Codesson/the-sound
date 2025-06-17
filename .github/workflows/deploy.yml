@@ -15,17 +15,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install Dependencies
         run: yarn install --frozen-lockfile
 
       - name: Build
         run: yarn build
+        env:
+          CI: false # Prevent treating warnings as errors
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist  # The folder the action should deploy
-          branch: gh-pages  # The branch the action should deploy to
-          clean: true  # Automatically remove deleted files from the deployment 
+          folder: build  # Changed from dist to build
+          branch: gh-pages
+          clean: true 
