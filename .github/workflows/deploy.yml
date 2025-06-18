@@ -3,11 +3,13 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # or your default branch
+      - gh-pages  # Changed from main to gh-pages
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -28,6 +30,8 @@ jobs:
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: build  # Changed from dist to build
+          folder: build
           branch: gh-pages
-          clean: true 
+          clean: true
+          clean-exclude: |
+            .nojekyll 
