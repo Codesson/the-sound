@@ -14,6 +14,9 @@ import example1 from "../../assets/images/example1.jpg";
 import example2 from "../../assets/images/example2.jpg";
 import example3 from "../../assets/images/example3.jpg";
 import example4 from "../../assets/images/example4.jpg";
+import {format, parse} from "date-fns";
+import {ko} from "date-fns/locale";
+
 
 // 사례 데이터 타입 정의
 interface CaseData {
@@ -44,14 +47,13 @@ export default function Portfolio() {
     const fetchData = async () => {
       try {
         const response = await fetch(
-          'https://docs.google.com/spreadsheets/d/1TnHBUzm-Pefue-B-WOS363wcblYZJY3WLnRY5DG4PIc/gviz/tq?tqx=out:json'
+          'https://docs.google.com/spreadsheets/d/1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs/gviz/tq?tqx=out:json'
         );
         const text = await response.text();
-        // Remove the first 47 characters and the last 2 characters to get valid JSON
         const jsonText = text.substring(47).slice(0, -2);
         const data = JSON.parse(jsonText);
-        
-        // Transform the data into CaseData format
+
+        // 데이터 변환
         const transformedData = data.table.rows.map((row: any) => {
           const cells = row.c;
           return {
@@ -59,7 +61,11 @@ export default function Portfolio() {
             title: cells[1]?.v || '',
             description: cells[2]?.v || '',
             location: cells[3]?.v || '',
-            date: cells[4]?.v || '',
+            date: cells[4]?.v ? format(new Date(
+              String(cells[4].v).slice(0, 4) + '-' + 
+              String(cells[4].v).slice(4, 6) + '-' + 
+              String(cells[4].v).slice(6, 8)
+            ), 'yyyy년 MM월 dd일', {locale: ko}) : '',
             equipment: cells[5]?.v ? cells[5].v.split(',').map((item: string) => item.trim()) : [],
             mainImage: cells[6]?.v || example1,
             detailImages: cells[7]?.v ? cells[7].v.split(',').map((item: string) => item.trim()) : [example1, example2, example3],
@@ -67,14 +73,10 @@ export default function Portfolio() {
             inquiry: cells[9]?.v ? JSON.parse(cells[9].v) : undefined
           };
         });
-        
+
         setCaseList(transformedData);
       } catch (error) {
         console.error('Error fetching data:', error);
-        // Fallback to default data if fetch fails
-        setCaseList([
-          
-        ]);
       } finally {
         setIsLoading(false);
       }
@@ -82,6 +84,10 @@ export default function Portfolio() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    console.log('caseList: ', caseList);
+  }, [caseList]);
 
   // 이미지 라이트박스
   const [lightboxIndex, setLightboxIndex] = useState(-1);
@@ -159,8 +165,8 @@ export default function Portfolio() {
               <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto my-8">
                 <div className="p-8">
                   {/* 헤더 영역 */}
-                  <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-4xl font-bold text-black">{selectedCase.title}</h2>
+                  <div className="flex justify-between items-center mb-8 border-b pb-6">
+                    <h2 className="text-4xl font-bold text-black text-left">{selectedCase.title}</h2>
                     <button 
                       onClick={handleCloseModal}
                       className="text-gray-500 hover:text-gray-700"
@@ -174,14 +180,14 @@ export default function Portfolio() {
                   {/* 블로그 스타일 레이아웃 */}
                   <article className="prose prose-lg max-w-none text-black">
                     {/* 메타 정보 */}
-                    <div className="flex items-center mb-6 text-gray-600">
+                    <div className="flex items-center mb-8 text-gray-600">
                       <span className="mr-4">{selectedCase.date}</span>
                       <span className="mr-4">|</span>
                       <span>{selectedCase.location}</span>
                     </div>
                     
                     {/* 메인 이미지 */}
-                    <div className="my-8">
+                    <div className="my-12">
                       <img 
                         src={selectedCase.mainImage} 
                         alt={selectedCase.alt} 
@@ -190,33 +196,31 @@ export default function Portfolio() {
                     </div>
                     
                     {/* 프로젝트 설명 */}
-                    <h3 className="text-2xl font-semibold mt-8 mb-4">프로젝트 개요</h3>
-                    <p className="mb-8 text-lg leading-relaxed">{selectedCase.description}</p>
+                    <h3 className="text-2xl font-semibold mt-12 mb-6 text-left">프로젝트 개요</h3>
+                    <p className="mb-12 text-lg leading-relaxed text-left">{selectedCase.description}</p>
                     
                     {/* 첫 번째 상세 이미지 */}
                     {selectedCase.detailImages.length > 0 && (
-                      <div className="my-8">
+                      <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[0]} 
                           alt={`${selectedCase.title} 상세 이미지 1`} 
                           className="w-full h-auto rounded-lg shadow-md cursor-pointer"
                           onClick={() => setLightboxIndex(0)}
                         />
-                        <p className="text-sm text-gray-500 mt-2 italic text-center">이미지를 클릭하면 확대해서 볼 수 있습니다</p>
+                        <p className="text-sm text-gray-500 mt-2 italic text-left">이미지를 클릭하면 확대해서 볼 수 있습니다</p>
                       </div>
                     )}
                     
                     {/* 설치 장비 */}
-                    <h3 className="text-2xl font-semibold mt-8 mb-4">설치 장비</h3>
-                    <ul className="list-disc pl-5 mb-8 space-y-2">
-                      {selectedCase.equipment.map((item, idx) => (
-                        <li key={idx} className="text-lg">{item}</li>
-                      ))}
-                    </ul>
+                    <h3 className="text-2xl font-semibold mt-12 mb-6 text-left">설치 장비</h3>
+                    <p className="mb-12 text-lg text-left">
+                      {selectedCase.equipment.join(', ')}
+                    </p>
                     
                     {/* 두 번째 상세 이미지 */}
                     {selectedCase.detailImages.length > 1 && (
-                      <div className="my-8">
+                      <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[1]} 
                           alt={`${selectedCase.title} 상세 이미지 2`} 
@@ -227,8 +231,8 @@ export default function Portfolio() {
                     )}
                     
                     {/* 프로젝트 후기 */}
-                    <h3 className="text-2xl font-semibold mt-8 mb-4">프로젝트 특징</h3>
-                    <p className="mb-8 text-lg leading-relaxed">
+                    <h3 className="text-2xl font-semibold mt-12 mb-6 text-left">프로젝트 특징</h3>
+                    <p className="mb-12 text-lg leading-relaxed text-left">
                       본 프로젝트는 {selectedCase.location}에 위치한 {selectedCase.title} 시스템을 구축한 사례입니다. 
                       고객의 요구사항을 충족시키기 위해 최적의 음향 시스템을 설계하고 구현했습니다. 
                       특히 공간의 특성을 고려한 맞춤형 솔루션을 제공하여 최상의 음향 경험을 제공했습니다.
@@ -236,7 +240,7 @@ export default function Portfolio() {
                     
                     {/* 세 번째 상세 이미지 */}
                     {selectedCase.detailImages.length > 2 && (
-                      <div className="my-8">
+                      <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[2]} 
                           alt={`${selectedCase.title} 상세 이미지 3`} 
@@ -248,7 +252,7 @@ export default function Portfolio() {
                     
                     {/* 추가 이미지 갤러리 */}
                     {selectedCase.detailImages.length > 3 && (
-                      <div className="my-8">
+                      <div className="my-12">
                         <h3 className="text-2xl font-semibold mb-4">추가 이미지</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {selectedCase.detailImages.slice(3).map((img, idx) => (
