@@ -8,6 +8,7 @@ import Products from './pages/products/page';
 import Portfolio from './pages/portfolio/page';
 import Questions from './pages/questions/page';
 import Support from './pages/support/page';
+import Manager from './pages/manager/page';
 import './App.css';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/questions" element={<Questions />} />
             <Route path="/support" element={<Support />} />
+            <Route path="/manager" element={<Manager />} />
             {/* <Route path="/store" element={<div>Store 페이지</div>} /> */}
           </Routes>
         </main>

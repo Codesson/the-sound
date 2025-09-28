@@ -27,7 +27,7 @@ export default function Header() {
     <div className={`fixed w-full flex flex-row justify-between items-center p-4 z-50 transition-all duration-300 ${
         isScrolled 
           ? "bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-lg shadow-slate-900/20" 
-          : "bg-slate-900/80 backdrop-blur-lg"
+          : "bg-transparent"
       }`}>
       <Link to="/" className="flex flex-row items-center gap-4 hover:scale-105 transition-all duration-300 cursor-pointer">
         <div className="relative">
