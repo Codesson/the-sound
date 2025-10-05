@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "The Sound",
+  "name": "The Sound - 음향 영상 조명 LED 전문 업체",
+  "description": "음향 영상 조명 LED 올인원 전문 시공 업체",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#1e293b",
+  "background_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"]
 }
