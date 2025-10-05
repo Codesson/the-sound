@@ -67,9 +67,18 @@ export default function Products() {
   ];
 
   const [selectedItem, setSelectedItem] = useState<ItemModel | null>(null);
+  const [isSpecModalOpen, setIsSpecModalOpen] = useState(false);
 
   const selectItem = (index: number) => {
     setSelectedItem(productsList[index]);
+    // 모바일에서는 바로 팝업 열기
+    if (window.innerWidth < 1024) {
+      setIsSpecModalOpen(true);
+    }
+  };
+
+  const closeSpecModal = () => {
+    setIsSpecModalOpen(false);
   };
 
   return (
@@ -123,9 +132,9 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Selected Product Details or Default Content */}
+      {/* Selected Product Details or Default Content - Desktop Only */}
       {selectedItem ? (
-        <div className="px-8 py-20">
+        <div className="hidden lg:block px-8 py-20">
           <div className="max-w-7xl mx-auto">
             <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
@@ -151,31 +160,38 @@ export default function Products() {
 
                 {/* Specifications */}
                 <div className="p-8">
-                  <h5 className="text-2xl font-bold text-white mb-6 border-b border-slate-700 pb-3">
-                    제품 사양
-                  </h5>
-                  {selectedItem.spec ? (
-                    <div className="bg-slate-800/20 rounded-lg border border-slate-700/30 overflow-hidden">
-                      <div className="divide-y divide-slate-700/30">
-                        {Object.entries(selectedItem.spec).map(([key, value]) => (
-                          <div key={key} className="px-3 py-2 hover:bg-slate-800/20 transition-colors duration-200">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                              <div className="text-blue-300 font-semibold text-xs uppercase tracking-wide lg:col-span-1">
-                                {key}
-                              </div>
-                              <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-line lg:col-span-2">
-                                {value}
+                  <div className="mb-6 border-b border-slate-700 pb-3">
+                    <h5 className="text-2xl font-bold text-white">
+                      제품 사양
+                    </h5>
+                  </div>
+                  
+                  {/* Desktop Spec Display */}
+                  <div className="hidden lg:block">
+                    {selectedItem.spec ? (
+                      <div className="bg-slate-800/20 rounded-lg border border-slate-700/30 overflow-hidden">
+                        <div className="divide-y divide-slate-700/30">
+                          {Object.entries(selectedItem.spec).map(([key, value]) => (
+                            <div key={key} className="px-3 py-2 hover:bg-slate-800/20 transition-colors duration-200">
+                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                                <div className="text-blue-300 font-semibold text-xs uppercase tracking-wide lg:col-span-1">
+                                  {key}
+                                </div>
+                                <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-line lg:col-span-2">
+                                  {value}
+                                </div>
                               </div>
                             </div>
-          </div>
-        ))}
-      </div>
-                    </div>
-                  ) : (
-                    <div className="text-gray-400 text-center py-8">
-                      제품 사양 정보가 준비 중입니다.
-                    </div>
-                  )}
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-center py-8">
+                        제품 사양 정보가 준비 중입니다.
+                      </div>
+                    )}
+                  </div>
+                  
                 </div>
               </div>
 
@@ -201,7 +217,7 @@ export default function Products() {
           </div>
         </div>
       ) : (
-        <div className="px-8 py-20">
+        <div className="hidden lg:block px-8 py-20">
           <div className="max-w-7xl mx-auto">
             <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
@@ -285,6 +301,81 @@ export default function Products() {
             </div>
           </div>
           </div>
+      )}
+
+      {/* Mobile Spec Modal */}
+      {isSpecModalOpen && selectedItem && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={closeSpecModal}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="absolute inset-0 flex flex-col bg-slate-900">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-800/50">
+              <div>
+                <h3 className="text-xl font-bold text-white">
+                  {selectedItem.model}
+                </h3>
+                <p className="text-sm text-blue-300">
+                  {selectedItem.kind}
+                </p>
+              </div>
+              <button
+                onClick={closeSpecModal}
+                className="p-2 text-gray-400 hover:text-white transition-colors duration-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Product Image */}
+              <div className="mb-6">
+                <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl p-4 shadow-lg">
+                  <img 
+                    src={selectedItem.url} 
+                    alt={selectedItem.alt || selectedItem.model}
+                    className="w-full h-48 object-contain"
+                  />
+                </div>
+              </div>
+              
+              <h4 className="text-lg font-bold text-white mb-4">
+                제품 사양
+              </h4>
+              
+              {selectedItem.spec ? (
+                <div className="bg-slate-800/20 rounded-lg border border-slate-700/30 overflow-hidden">
+                  <div className="divide-y divide-slate-700/30">
+                    {Object.entries(selectedItem.spec).map(([key, value]) => (
+                      <div key={key} className="p-4">
+                        <div className="space-y-2">
+                          <div className="text-blue-300 font-semibold text-sm uppercase tracking-wide">
+                            {key}
+                          </div>
+                          <div className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                            {value}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-center py-8">
+                  제품 사양 정보가 준비 중입니다.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

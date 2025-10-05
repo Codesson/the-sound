@@ -219,31 +219,31 @@ export default function Organization() {
   }, []);
 
   return (
-    <section className="flex flex-col justify-center items-center py-24 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 relative overflow-hidden">
+    <section className="flex flex-col justify-center items-center py-16 sm:py-20 lg:py-24 bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-blue-500 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-64 sm:w-80 lg:w-96 h-64 sm:h-80 lg:h-96 bg-purple-500 rounded-full blur-3xl"></div>
       </div>
       
-      <div className="w-full">
-        <div className="text-center mb-20">
-          <h2 className="text-4xl font-black text-white mb-4 tracking-wide">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 sm:mb-16 lg:mb-20">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mb-3 sm:mb-4 tracking-wide">
             조직 구성도
           </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 mx-auto rounded-full"></div>
+          <div className="w-16 sm:w-20 lg:w-24 h-0.5 sm:h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 mx-auto rounded-full"></div>
         </div>
         
         <div className="canvas-container w-full max-w-7xl mx-auto">
           <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 rounded-3xl blur-2xl"></div>
+            <div className="absolute -inset-2 sm:-inset-3 lg:-inset-4 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-cyan-600/20 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl"></div>
             <canvas 
               ref={canvasRef}
-              className="relative rounded-3xl shadow-2xl border border-white/10 backdrop-blur-sm"
+              className="relative rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 backdrop-blur-sm"
               style={{ 
                 width: '100%', 
                 height: 'auto',
-                maxHeight: '80vh'
+                maxHeight: '60vh'
               }}
             />
           </div>
@@ -255,18 +255,30 @@ export default function Organization() {
           display: flex;
           justify-content: center;
           align-items: center;
-          padding: 0 20px;
+          padding: 0 10px;
+        }
+        
+        @media (min-width: 640px) {
+          .canvas-container {
+            padding: 0 20px;
+          }
         }
         
         @media (max-width: 1024px) {
           canvas {
-            max-height: 70vh !important;
+            max-height: 55vh !important;
           }
         }
         
         @media (max-width: 768px) {
           canvas {
-            max-height: 60vh !important;
+            max-height: 50vh !important;
+          }
+        }
+        
+        @media (max-width: 640px) {
+          canvas {
+            max-height: 45vh !important;
           }
         }
       `}</style>

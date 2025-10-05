@@ -343,63 +343,116 @@ export default function Support() {
             <p className="text-sm text-gray-500">다른 검색어나 카테고리를 선택해보세요</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead>
-                <tr className="bg-gray-900">
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">번호</th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">제목</th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">설명</th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">카테고리</th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">등록일</th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">문서</th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {currentItems.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-700 transition-colors duration-150">
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-300">{item.id}</div>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-200">{item.title}</div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="text-sm text-gray-400 max-w-xs truncate">{item.desc}</div>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(item.category)}`}>
+          <>
+            {/* 데스크톱 테이블 뷰 */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead>
+                  <tr className="bg-gray-900">
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">번호</th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">제목</th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">설명</th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">카테고리</th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">등록일</th>
+                    <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">문서</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                  {currentItems.map((item, index) => (
+                    <tr key={item.id} className="hover:bg-gray-700 transition-colors duration-150">
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-300">{item.id}</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-200">{item.title}</div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="text-sm text-gray-400 max-w-xs truncate">{item.desc}</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(item.category)}`}>
+                          {item.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm text-gray-400">{item.createdAt}</div>
+                      </td>
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {item.fileUrl ? (
+                            <a
+                              href={item.fileUrl}
+                              className="inline-flex items-center px-3 py-1.5 border border-gray-600 rounded-full text-xs font-medium bg-gray-700 text-blue-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors duration-200"
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <svg className="w-4 h-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              다운로드
+                            </a>
+                          ) : (
+                            <span className="text-sm text-gray-500">문서 없음</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일 카드 뷰 */}
+            <div className="lg:hidden space-y-4 p-4">
+              {currentItems.map((item, index) => (
+                <div key={item.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:bg-gray-600 transition-colors duration-150">
+                  {/* 헤더 */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-medium text-gray-400 bg-gray-600 px-2 py-1 rounded">
+                        #{item.id}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(item.category)}`}>
                         {item.category}
                       </span>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="text-sm text-gray-400">{item.createdAt}</div>
-                    </td>
-                    <td className="px-6 py-5 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {item.fileUrl ? (
-                          <a
-                            href={item.fileUrl}
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-600 rounded-full text-xs font-medium bg-gray-700 text-blue-300 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-colors duration-200"
-                            download
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <svg className="w-4 h-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            다운로드
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-500">문서 없음</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                    <span className="text-xs text-gray-400">{item.createdAt}</span>
+                  </div>
+                  
+                  {/* 제목 */}
+                  <h3 className="text-sm font-semibold text-gray-200 mb-2 line-clamp-2">
+                    {item.title}
+                  </h3>
+                  
+                  {/* 설명 */}
+                  <p className="text-xs text-gray-400 mb-4 line-clamp-3">
+                    {item.desc}
+                  </p>
+                  
+                  {/* 다운로드 버튼 */}
+                  <div className="flex justify-end">
+                    {item.fileUrl ? (
+                      <a
+                        href={item.fileUrl}
+                        className="inline-flex items-center px-3 py-2 border border-gray-500 rounded-lg text-xs font-medium bg-gray-600 text-blue-300 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-700 focus:ring-blue-500 transition-colors duration-200"
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <svg className="w-4 h-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        다운로드
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-500">문서 없음</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
       

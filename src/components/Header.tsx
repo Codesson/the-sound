@@ -4,6 +4,7 @@ import waveSound from "../assets/images/wave-sound.png";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -23,95 +24,185 @@ export default function Header() {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div className={`fixed w-full flex flex-row justify-between items-center p-4 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? "bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-lg shadow-slate-900/20" 
-          : "bg-transparent"
-      }`}>
-      <Link to="/" className="flex flex-row items-center gap-4 hover:scale-105 transition-all duration-300 cursor-pointer">
-        <div className="relative">
-          <img 
-            src={waveSound} 
-            alt="로고" 
-            width={40} 
-            height={40}
-            className="drop-shadow-lg"
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-sm"></div>
+    <>
+      <div className={`fixed w-full flex flex-row justify-between items-center p-4 z-50 transition-all duration-300 ${
+          isScrolled 
+            ? "bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-lg shadow-slate-900/20" 
+            : "bg-transparent"
+        }`}>
+        <Link to="/" className="flex flex-row items-center gap-2 md:gap-4 hover:scale-105 transition-all duration-300 cursor-pointer" onClick={closeMobileMenu}>
+          <div className="relative">
+            <img 
+              src={waveSound} 
+              alt="로고" 
+              width={32} 
+              height={32}
+              className="drop-shadow-lg md:w-10 md:h-10"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-sm"></div>
+          </div>
+          <span className="text-lg md:text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            The Sound
+          </span>
+        </Link>
+        
+        {/* Desktop Navigation */}
+        <nav className="hidden lg:flex flex-row gap-6 xl:gap-8 text-sm xl:text-base mr-8">
+          <Link 
+            to="/introduce" 
+            className={`transition-all duration-300 hover:scale-105 relative group ${
+              isActive('/introduce') 
+                ? 'text-white font-semibold' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            회사소개
+            <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
+              isActive('/introduce') ? 'w-full' : 'w-0 group-hover:w-full'
+            }`}></span>
+          </Link>
+          <Link 
+            to="/products" 
+            className={`transition-all duration-300 hover:scale-105 relative group ${
+              isActive('/products') 
+                ? 'text-white font-semibold' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            제품소개
+            <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
+              isActive('/products') ? 'w-full' : 'w-0 group-hover:w-full'
+            }`}></span>
+          </Link>
+          <Link 
+            to="/portfolio" 
+            className={`transition-all duration-300 hover:scale-105 relative group ${
+              isActive('/portfolio') 
+                ? 'text-white font-semibold' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            시공사례
+            <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
+              isActive('/portfolio') ? 'w-full' : 'w-0 group-hover:w-full'
+            }`}></span>
+          </Link>
+          <Link 
+            to="/questions" 
+            className={`transition-all duration-300 hover:scale-105 relative group ${
+              isActive('/questions') 
+                ? 'text-white font-semibold' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            문의사항
+            <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
+              isActive('/questions') ? 'w-full' : 'w-0 group-hover:w-full'
+            }`}></span>
+          </Link>
+          <Link 
+            to="/support" 
+            className={`transition-all duration-300 hover:scale-105 relative group ${
+              isActive('/support') 
+                ? 'text-white font-semibold' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            고객지원
+            <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
+              isActive('/support') ? 'w-full' : 'w-0 group-hover:w-full'
+            }`}></span>
+          </Link>
+        </nav>
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={toggleMobileMenu}
+          className="lg:hidden flex flex-col justify-center items-center w-8 h-8 space-y-1"
+          aria-label="메뉴 열기"
+        >
+          <span className={`w-6 h-0.5 bg-white transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}></span>
+          <span className={`w-6 h-0.5 bg-white transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+          <span className={`w-6 h-0.5 bg-white transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
+        </button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeMobileMenu}></div>
+          <div className="absolute top-0 right-0 w-80 h-full bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/50 shadow-2xl">
+            <div className="p-6 pt-20">
+              <nav className="flex flex-col space-y-6">
+                <Link 
+                  to="/introduce" 
+                  className={`text-lg font-medium transition-all duration-300 ${
+                    isActive('/introduce') 
+                      ? 'text-white' 
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  회사소개
+                </Link>
+                <Link 
+                  to="/products" 
+                  className={`text-lg font-medium transition-all duration-300 ${
+                    isActive('/products') 
+                      ? 'text-white' 
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  제품소개
+                </Link>
+                <Link 
+                  to="/portfolio" 
+                  className={`text-lg font-medium transition-all duration-300 ${
+                    isActive('/portfolio') 
+                      ? 'text-white' 
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  시공사례
+                </Link>
+                <Link 
+                  to="/questions" 
+                  className={`text-lg font-medium transition-all duration-300 ${
+                    isActive('/questions') 
+                      ? 'text-white' 
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  문의사항
+                </Link>
+                <Link 
+                  to="/support" 
+                  className={`text-lg font-medium transition-all duration-300 ${
+                    isActive('/support') 
+                      ? 'text-white' 
+                      : 'text-gray-300 hover:text-white'
+                  }`}
+                  onClick={closeMobileMenu}
+                >
+                  고객지원
+                </Link>
+              </nav>
+            </div>
+          </div>
         </div>
-        <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-          The Sound
-        </span>
-      </Link>
-      
-      <nav className="flex flex-row gap-8 text-base mr-8">
-        <Link 
-          to="/introduce" 
-          className={`transition-all duration-300 hover:scale-105 relative group ${
-            isActive('/introduce') 
-              ? 'text-white font-semibold' 
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          회사소개
-          <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-            isActive('/introduce') ? 'w-full' : 'w-0 group-hover:w-full'
-          }`}></span>
-        </Link>
-        <Link 
-          to="/products" 
-          className={`transition-all duration-300 hover:scale-105 relative group ${
-            isActive('/products') 
-              ? 'text-white font-semibold' 
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          제품소개
-          <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-            isActive('/products') ? 'w-full' : 'w-0 group-hover:w-full'
-          }`}></span>
-        </Link>
-        <Link 
-          to="/portfolio" 
-          className={`transition-all duration-300 hover:scale-105 relative group ${
-            isActive('/portfolio') 
-              ? 'text-white font-semibold' 
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          시공사례
-          <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-            isActive('/portfolio') ? 'w-full' : 'w-0 group-hover:w-full'
-          }`}></span>
-        </Link>
-        <Link 
-          to="/questions" 
-          className={`transition-all duration-300 hover:scale-105 relative group ${
-            isActive('/questions') 
-              ? 'text-white font-semibold' 
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          문의사항
-          <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-            isActive('/questions') ? 'w-full' : 'w-0 group-hover:w-full'
-          }`}></span>
-        </Link>
-        <Link 
-          to="/support" 
-          className={`transition-all duration-300 hover:scale-105 relative group ${
-            isActive('/support') 
-              ? 'text-white font-semibold' 
-              : 'text-gray-300 hover:text-white'
-          }`}
-        >
-          고객지원
-          <span className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-            isActive('/support') ? 'w-full' : 'w-0 group-hover:w-full'
-          }`}></span>
-        </Link>
-      </nav>
-    </div>
+      )}
+    </>
   );
 }
