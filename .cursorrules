@@ -1,0 +1,23 @@
+# The Sound 프로젝트 개발 규칙
+
+## 패키지 매니저 규칙
+- **무조건 yarn만 사용**: npm, pnpm 등 다른 패키지 매니저 사용 금지
+- 모든 패키지 설치, 업데이트, 제거는 yarn으로만 실행
+- package-lock.json 파일 생성 금지 (yarn.lock만 사용)
+- yarn install, yarn add, yarn remove, yarn upgrade 등만 사용
+
+## Node.js 버전 호환성
+- Node.js 23.x 버전 사용 중
+- 호환성 문제 발생 시 --ignore-engines 플래그 사용
+- yarn install --ignore-engines로 설치 진행
+
+## 보안 규칙
+- .env 파일은 절대 Git에 커밋하지 않기
+- API 키, 비밀번호 등 민감한 정보는 환경변수로 관리
+- .env.example 파일을 통해 필요한 환경변수 문서화
+
+## 개발 규칙
+- TypeScript 사용 필수
+- React 18 기반 개발
+- Tailwind CSS 사용
+- 반응형 디자인 필수 (모바일 우선)
