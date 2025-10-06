@@ -45,11 +45,10 @@ export default function Introduce() {
                 </div>
                 
                 {/* Enhanced decorative elements */}
-                <div className="mt-6 sm:mt-8 md:mt-10 flex justify-center lg:justify-start items-center space-x-3 sm:space-x-4">
+                <div className="mt-6 sm:mt-8 md:mt-10 flex justify-center items-center space-x-3 sm:space-x-4">
                   <div className="w-12 sm:w-16 h-0.5 bg-gradient-to-r from-blue-300/80 via-white/60 to-transparent rounded-full"></div>
                   <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 bg-gradient-to-br from-blue-300/60 to-white/40 rounded-full animate-pulse shadow-lg"></div>
-                  <div className="w-8 sm:w-10 h-0.5 bg-gradient-to-r from-white/50 to-transparent rounded-full"></div>
-                  <div className="w-1 h-1 bg-white/30 rounded-full animate-pulse delay-700"></div>
+                  <div className="w-12 sm:w-16 h-0.5 bg-gradient-to-r from-blue-300/80 via-white/60 to-transparent rounded-full"></div>
                 </div>
               </div>
             </div>
