@@ -122,6 +122,8 @@ export default function Products() {
   const [isSpecModalOpen, setIsSpecModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8); // 한 페이지당 제품 수
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8); // 한 페이지당 제품 수
 
   // 페이징 계산
   const totalPages = Math.ceil(productsList.length / itemsPerPage);

@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
+import speakerImage from "../../assets/images/speaker.png";
+import videoImage from "../../assets/images/3d-video.png";
+import spotlightsImage from "../../assets/images/spotlights.png";
+import ledImage from "../../assets/images/led.png";
 
 export default function Manager() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [currentView, setCurrentView] = useState<'menu' | 'portfolio' | 'products'>('menu');
     const [uploadForm, setUploadForm] = useState({
         title: '',
         description: '',
@@ -11,6 +16,18 @@ export default function Manager() {
         mainImage: null as File | null,
         detailImages: [] as File[]
     });
+    
+    // 제품 관리 상태
+    const [products, setProducts] = useState<any[]>([]);
+    const [productForm, setProductForm] = useState({
+        model: '',
+        kind: '',
+        description: '',
+        spec: '',
+        mainImage: null as File | null
+    });
+    const [showAddProduct, setShowAddProduct] = useState(false);
+    const [loading, setLoading] = useState(false);
     const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         
@@ -167,6 +184,77 @@ export default function Manager() {
 
     const logout = () => {
         setIsLoggedIn(false);
+        setCurrentView('menu');
+        setShowAddProduct(false);
+    };
+    
+    // 제품 목록 가져오기
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            // 제품소개 페이지와 동일한 하드코딩된 데이터 사용
+            const productsData = [
+                {
+                    id: 1,
+                    model: "E212",
+                    kind: "메인 스피커",
+                    description: "E212 스피커는 유수한 스피커제조사들이 사용하는 B&C(ITALY) SPEAKER를 시작으로...",
+                    spec: "TYPE: 2WAY PASSIVE SPEAKER\nCOMPONENTS: LOW: 2 X 12\" 3\" VOICE COIL (B&C)",
+                    mainImage: speakerImage,
+                    alt: "E212 스피커"
+                },
+                {
+                    id: 2,
+                    model: "TS M12",
+                    kind: "12인치 모니터",
+                    description: "12인치 모니터 스피커입니다.",
+                    spec: "",
+                    mainImage: videoImage,
+                    alt: "TS M12 모니터"
+                },
+                {
+                    id: 3,
+                    model: "E12",
+                    kind: "딜레이 스피커",
+                    description: "딜레이 스피커입니다.",
+                    spec: "",
+                    mainImage: spotlightsImage,
+                    alt: "E12 딜레이 스피커"
+                },
+                {
+                    id: 4,
+                    model: "S218",
+                    kind: "서브우퍼",
+                    description: "18인치 서브우퍼입니다.",
+                    spec: "",
+                    mainImage: ledImage,
+                    alt: "S218 서브우퍼"
+                }
+            ];
+            
+            setProducts(productsData);
+        } catch (error) {
+            console.error('제품 데이터 가져오기 오류:', error);
+            setProducts([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setProductForm(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+    
+    const handleProductImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        setProductForm(prev => ({
+            ...prev,
+            mainImage: file
+        }));
     };
 
     useEffect(() => {
@@ -181,7 +269,14 @@ export default function Manager() {
             .catch((error) => {
                 console.warn('API endpoint not found:', error);
             });
-    }, [])
+    }, []);
+    
+    // 제품 관리 페이지 진입 시 제품 목록 불러오기
+    useEffect(() => {
+        if (currentView === 'products') {
+            fetchProducts();
+        }
+    }, [currentView]);
 
     return (
         <div className="min-h-screen bg-slate-900">
@@ -213,11 +308,52 @@ export default function Manager() {
                             </button>
                         </form>
                     </div>
-                ) : (
+                ) : currentView === 'menu' ? (
+                    // 메뉴 화면
+                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-4xl w-full">
+                        <div className="mb-8 text-center">
+                            <h2 className="text-3xl font-bold text-white mb-4">관리자 시스템</h2>
+                            <p className="text-gray-400">관리할 항목을 선택하세요</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <button
+                                onClick={() => setCurrentView('portfolio')}
+                                className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
+                            >
+                                <h3 className="text-2xl font-semibold text-white mb-2">포트폴리오 관리</h3>
+                                <p className="text-gray-300">시공 사례를 추가하고 관리할 수 있습니다</p>
+                            </button>
+                            
+                            <button
+                                onClick={() => setCurrentView('products')}
+                                className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
+                            >
+                                <h3 className="text-2xl font-semibold text-white mb-2">제품 관리</h3>
+                                <p className="text-gray-300">제품 정보를 확인하고 관리할 수 있습니다</p>
+                            </button>
+                        </div>
+                        
+                        <div className="mt-8 text-center">
+                            <button
+                                onClick={logout}
+                                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                            >
+                                로그아웃
+                            </button>
+                        </div>
+                    </div>
+                ) : currentView === 'portfolio' ? (
                     // 시공사례 업로드 폼
                     <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8">
-                        <div className="mb-8">
+                        <div className="mb-8 flex justify-between items-center">
                             <h2 className="text-3xl font-bold text-white">고객 사례 업로드</h2>
+                            <button
+                                onClick={() => setCurrentView('menu')}
+                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                            >
+                                메뉴로 돌아가기
+                            </button>
                         </div>
                         
                         <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -381,7 +517,130 @@ export default function Manager() {
                             </button>
             </form>
                     </div>
-                )}
+                ) : currentView === 'products' ? (
+                    // 제품 관리 화면
+                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
+                        <div className="mb-8 flex justify-between items-center">
+                            <h2 className="text-3xl font-bold text-white">제품 관리</h2>
+                            <div className="space-x-4">
+                                <button
+                                    onClick={() => setShowAddProduct(true)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    새 제품 추가
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('menu')}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    메뉴로 돌아가기
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* 제품 목록 */}
+                        <div className="mb-6">
+                            <h3 className="text-xl font-semibold text-white mb-4">등록된 제품 목록</h3>
+                            
+                            {loading ? (
+                                <div className="text-center py-8">
+                                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                    <p className="text-gray-300 mt-2">로딩 중...</p>
+                                </div>
+                            ) : products.length === 0 ? (
+                                <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                                    <p className="text-gray-400 mb-4">등록된 제품이 없습니다</p>
+                                    <button
+                                        onClick={() => setShowAddProduct(true)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                    >
+                                        첫 번째 제품 추가하기
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {products.map((product) => (
+                                        <div key={product.id} className="bg-slate-700/50 rounded-lg border border-slate-600/50 hover:bg-slate-700/70 transition-colors duration-200">
+                                            <div className="flex items-center p-4">
+                                                {/* 제품 이미지 - 심플하게 */}
+                                                <div className="flex-shrink-0 mr-4">
+                                                    {product.mainImage && (
+                                                        <div className="w-16 h-16 bg-slate-600/50 rounded-lg flex items-center justify-center">
+                                                            <img
+                                                                src={product.mainImage}
+                                                                alt={product.alt}
+                                                                className="w-12 h-12 object-contain"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* 제품 정보 */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <h4 className="text-lg font-semibold text-white truncate">{product.model}</h4>
+                                                            <p className="text-sm text-blue-300">{product.kind}</p>
+                                                        </div>
+                                                        <div className="flex space-x-2 ml-4">
+                                                            <button className="text-gray-400 hover:text-yellow-400 transition-colors p-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button className="text-gray-400 hover:text-red-400 transition-colors p-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* 제품 설명 */}
+                                                    <p className="text-sm text-gray-300 mt-2 line-clamp-2">
+                                                        {product.description}
+                                                    </p>
+                                                    
+                                                    {/* 사양 정보 (있는 경우만) */}
+                                                    {product.spec && (
+                                                        <div className="mt-2 text-xs text-gray-400">
+                                                            <div className="space-y-1">
+                                                                {product.spec.split('\n').slice(0, 3).map((line: string, index: number) => {
+                                                                    if (!line.trim()) return null;
+                                                                    const colonIndex = line.indexOf(':');
+                                                                    if (colonIndex === -1) return null;
+                                                                    
+                                                                    const key = line.substring(0, colonIndex).trim();
+                                                                    const value = line.substring(colonIndex + 1).trim();
+                                                                    
+                                                                    return (
+                                                                        <div key={index} className="flex">
+                                                                            <span className="text-gray-500 font-medium min-w-0 flex-shrink-0 mr-2">
+                                                                                {key}:
+                                                                            </span>
+                                                                            <span className="text-gray-300 truncate">
+                                                                                {value}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                }).filter(Boolean)}
+                                                                {product.spec.split('\n').length > 3 && (
+                                                                    <div className="text-gray-500 text-xs">
+                                                                        ... 외 {product.spec.split('\n').length - 3}개 항목
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
                 </div>
             </div>
         </div>
