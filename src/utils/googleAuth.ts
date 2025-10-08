@@ -152,19 +152,23 @@ export const hasGoogleDriveScope = (token: string): boolean => {
 };
 
 // 토큰 새로고침 (필요시)
+// ⚠️ 주의: 이 함수는 서버 사이드에서만 사용해야 합니다.
+// Client Secret을 클라이언트에 노출하면 안 되므로, 
+// 토큰 새로고침이 필요한 경우 백엔드 API를 통해 처리해야 합니다.
 export const refreshGoogleToken = async (refreshToken: string): Promise<string | null> => {
+  console.warn('⚠️ refreshGoogleToken은 클라이언트에서 사용할 수 없습니다. 백엔드 API를 통해 처리하세요.');
+  
+  // 클라이언트에서는 사용자에게 재로그인을 요청하는 것이 더 안전합니다.
+  return null;
+  
+  /* 서버 사이드 구현 예시:
   try {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
+    const response = await fetch('/api/refresh-token', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: new URLSearchParams({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
-        client_secret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET || '',
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
+      body: JSON.stringify({ refreshToken })
     });
 
     if (!response.ok) {
@@ -177,6 +181,7 @@ export const refreshGoogleToken = async (refreshToken: string): Promise<string |
     console.error('Token refresh error:', error);
     return null;
   }
+  */
 };
 
 // 전역 타입 선언

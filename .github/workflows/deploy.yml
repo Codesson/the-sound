@@ -26,6 +26,10 @@ jobs:
         run: yarn build
         env:
           CI: false # Prevent treating warnings as errors
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          # REACT_APP_GOOGLE_CLIENT_SECRET는 클라이언트 앱에서 사용하지 않음 (보안 위험)
+          REACT_APP_MANAGER_EMAIL: ${{ secrets.REACT_APP_MANAGER_EMAIL }}
+          REACT_APP_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.REACT_APP_GOOGLE_APPS_SCRIPT_URL }}
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
