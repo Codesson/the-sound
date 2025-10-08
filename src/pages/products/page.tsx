@@ -154,24 +154,69 @@ export default function Products() {
         }
         
         const csvText = await response.text();
-        const lines = csvText.split('\n').filter(line => line.trim() !== '');
         
-        if (lines.length <= 1) {
+        // CSV 파싱 함수 (따옴표 안의 쉼표와 줄바꿈 처리)
+        const parseCSV = (text: string): string[][] => {
+          const rows: string[][] = [];
+          let currentRow: string[] = [];
+          let currentField = '';
+          let insideQuotes = false;
+          
+          for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1];
+            
+            if (char === '"') {
+              if (insideQuotes && nextChar === '"') {
+                // 이중 따옴표는 하나의 따옴표로
+                currentField += '"';
+                i++; // 다음 따옴표 건너뛰기
+              } else {
+                // 따옴표 토글
+                insideQuotes = !insideQuotes;
+              }
+            } else if (char === ',' && !insideQuotes) {
+              // 필드 구분자
+              currentRow.push(currentField.trim());
+              currentField = '';
+            } else if (char === '\n' && !insideQuotes) {
+              // 행 구분자
+              currentRow.push(currentField.trim());
+              if (currentRow.some(field => field !== '')) {
+                rows.push(currentRow);
+              }
+              currentRow = [];
+              currentField = '';
+            } else {
+              currentField += char;
+            }
+          }
+          
+          // 마지막 필드와 행 처리
+          if (currentField || currentRow.length > 0) {
+            currentRow.push(currentField.trim());
+            if (currentRow.some(field => field !== '')) {
+              rows.push(currentRow);
+            }
+          }
+          
+          return rows;
+        };
+        
+        const rows = parseCSV(csvText);
+        
+        if (rows.length <= 1) {
           console.warn('스프레드시트에 데이터가 없습니다. 기본 데이터를 사용합니다.');
           setProductsList(defaultProducts);
           return;
         }
         
         // 헤더 확인 (id, productName, category, description, specification, productImage)
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const headers = rows[0];
         console.log('스프레드시트 헤더:', headers);
         
         // 데이터 파싱 (헤더 제외)
-        const products = lines.slice(1).map((line, index) => {
-          // CSV 파싱 (쉼표로 구분, 따옴표 처리)
-          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-          const values = line.split(regex).map(value => value.trim().replace(/^"|"$/g, ''));
-          
+        const products = rows.slice(1).map((values, index) => {
           // CSV 컬럼: id, productName, category, description, specification, productImage
           const id = values[0] || '';
           const productName = values[1] || '';
@@ -179,6 +224,8 @@ export default function Products() {
           const description = values[3] || '';
           const specification = values[4] || '';
           const productImage = values[5] || '';
+          
+          console.log(`제품 ${index + 1}:`, { productName, category, descLength: description.length, specLength: specification.length, imageLength: productImage.length });
           
           // 이미지 처리: base64가 있으면 사용, 없으면 기본 이미지
           let imageUrl = speakerImage; // 기본 이미지
