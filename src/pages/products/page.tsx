@@ -211,26 +211,38 @@ export default function Products() {
           return;
         }
         
-        // 헤더 확인 (id, productName, category, description, specification, productImage)
+        // 헤더 확인 (id, productName, category, description, specification, productImage, productImageExtra)
         const headers = rows[0];
         console.log('스프레드시트 헤더:', headers);
+        console.log('총 컬럼 수:', headers.length);
         
         // 데이터 파싱 (헤더 제외)
         const products = rows.slice(1).map((values, index) => {
-          // CSV 컬럼: id, productName, category, description, specification, productImage
+          // CSV 컬럼: id, productName, category, description, specification, productImage, productImageExtra
           const id = values[0] || '';
           const productName = values[1] || '';
           const category = values[2] || '';
           const description = values[3] || '';
           const specification = values[4] || '';
           const productImage = values[5] || '';
+          const productImageExtra = values[6] || ''; // 7번째 컬럼
           
-          console.log(`제품 ${index + 1}:`, { productName, category, descLength: description.length, specLength: specification.length, imageLength: productImage.length });
+          console.log(`제품 ${index + 1}:`, { 
+            productName, 
+            category, 
+            descLength: description.length, 
+            specLength: specification.length, 
+            imageLength: productImage.length,
+            imageExtraLength: productImageExtra.length
+          });
           
-          // 이미지 처리: base64가 있으면 사용, 없으면 기본 이미지
+          // 이미지 처리: productImage와 productImageExtra를 합쳐서 완전한 base64 이미지 생성
           let imageUrl = speakerImage; // 기본 이미지
           if (productImage && productImage.length > 10) {
-            imageUrl = decodeBase64Image(productImage);
+            // productImageExtra가 있으면 합치기
+            const fullBase64 = productImageExtra ? productImage + productImageExtra : productImage;
+            imageUrl = decodeBase64Image(fullBase64);
+            console.log(`  → 이미지 합침: ${productImage.length} + ${productImageExtra.length} = ${fullBase64.length}자`);
           }
           
           // 사양 정보 파싱 (쉼표로 구분된 key:value 형식)
