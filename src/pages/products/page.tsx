@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import speakerImage from "../../assets/images/speaker.png";
 import videoImage from "../../assets/images/3d-video.png";
 import spotlightsImage from "../../assets/images/spotlights.png";
@@ -13,8 +13,23 @@ type ItemModel = {
   spec?: Record<string, string> | undefined;
 };
 
+// Base64 이미지를 디코딩하는 함수
+const decodeBase64Image = (base64String: string): string => {
+  if (!base64String) return '';
+  // 이미 data:image로 시작하면 그대로 반환
+  if (base64String.startsWith('data:image')) {
+    return base64String;
+  }
+  // 아니면 data:image 헤더 추가
+  return `data:image/png;base64,${base64String}`;
+};
+
 export default function Products() {
-  const productsList: ItemModel[] = [
+  const [productsList, setProductsList] = useState<ItemModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // 기본 제품 데이터 (fallback용)
+  const defaultProducts: ItemModel[] = [
     {
       model: "E212",
       kind: `메인 스피커`,
@@ -122,8 +137,100 @@ export default function Products() {
   const [isSpecModalOpen, setIsSpecModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8); // 한 페이지당 제품 수
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(8); // 한 페이지당 제품 수
+  
+  // Google Spreadsheet에서 제품 데이터 가져오기
+  useEffect(() => {
+    const fetchProductsFromSpreadsheet = async () => {
+      setLoading(true);
+      try {
+        const SPREADSHEET_ID = "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
+        const GID = "1979478923"; // 제품 시트의 gid
+        const response = await fetch(
+          `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GID}`
+        );
+        
+        if (!response.ok) {
+          throw new Error('스프레드시트 데이터를 가져오는데 실패했습니다.');
+        }
+        
+        const csvText = await response.text();
+        const lines = csvText.split('\n').filter(line => line.trim() !== '');
+        
+        if (lines.length <= 1) {
+          console.warn('스프레드시트에 데이터가 없습니다. 기본 데이터를 사용합니다.');
+          setProductsList(defaultProducts);
+          return;
+        }
+        
+        // 헤더 제외하고 데이터 파싱
+        const products = lines.slice(1).map((line, index) => {
+          const values = line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
+          
+          // CSV 컬럼: 모델명, 제품종류, 설명, 이미지(base64), 이미지추가(base64), 사양
+          const model = values[0] || '';
+          const kind = values[1] || '';
+          const description = values[2] || '';
+          const imageBase64 = values[3] || '';
+          const imageBase64Extra = values[4] || '';
+          const specification = values[5] || '';
+          
+          // 이미지 처리: base64가 있으면 사용, 없으면 기본 이미지
+          let imageUrl = speakerImage; // 기본 이미지
+          if (imageBase64) {
+            // 분할된 이미지가 있으면 합치기
+            const fullBase64 = imageBase64Extra ? imageBase64 + imageBase64Extra : imageBase64;
+            imageUrl = decodeBase64Image(fullBase64);
+          }
+          
+          // 사양 정보 파싱 (줄바꿈으로 구분된 key:value 형식)
+          let spec: Record<string, string> | undefined = undefined;
+          if (specification) {
+            spec = {};
+            const specLines = specification.split('\\n'); // CSV에서는 \\n으로 저장됨
+            specLines.forEach(line => {
+              const colonIndex = line.indexOf(':');
+              if (colonIndex !== -1) {
+                const key = line.substring(0, colonIndex).trim();
+                const value = line.substring(colonIndex + 1).trim();
+                if (key && value) {
+                  spec![key] = value;
+                }
+              }
+            });
+            // 사양이 비어있으면 undefined로 설정
+            if (Object.keys(spec).length === 0) {
+              spec = undefined;
+            }
+          }
+          
+          return {
+            model,
+            kind,
+            url: imageUrl,
+            alt: model,
+            desc: description,
+            spec
+          };
+        }).filter(product => product.model); // 모델명이 있는 것만 필터링
+        
+        if (products.length > 0) {
+          setProductsList(products);
+          console.log(`✅ 스프레드시트에서 ${products.length}개 제품을 불러왔습니다.`);
+        } else {
+          console.warn('스프레드시트에서 유효한 제품 데이터를 찾을 수 없습니다. 기본 데이터를 사용합니다.');
+          setProductsList(defaultProducts);
+        }
+      } catch (error) {
+        console.error('스프레드시트 데이터 가져오기 오류:', error);
+        console.log('기본 제품 데이터를 사용합니다.');
+        setProductsList(defaultProducts);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProductsFromSpreadsheet();
+  }, []);
 
   // 페이징 계산
   const totalPages = Math.ceil(productsList.length / itemsPerPage);
@@ -163,6 +270,18 @@ export default function Products() {
       goToPage(currentPage + 1);
     }
   };
+
+  // 로딩 중일 때 표시
+  if (loading) {
+    return (
+      <section className="pt-[70px] min-h-[100vh] bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+          <p className="text-white text-xl">제품 데이터를 불러오는 중...</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="pt-[70px] min-h-[100vh] bg-slate-900">
