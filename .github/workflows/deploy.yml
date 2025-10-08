@@ -3,7 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - gh-pages  # Changed from main to gh-pages
+      - gh-pages
+    paths-ignore:
+      - 'build/**'  # 빌드 폴더 변경은 무시
 
 jobs:
   build-and-deploy:
@@ -35,7 +37,8 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: build
-          branch: gh-pages
+          branch: gh-pages-deploy  # 배포용 별도 브랜치
           clean: true
-          clean-exclude: |
-            .nojekyll 
+          commit-message: "🚀 Deploy: ${{ github.event.head_commit.message }}"
+          git-config-name: github-actions[bot]
+          git-config-email: github-actions[bot]@users.noreply.github.com
