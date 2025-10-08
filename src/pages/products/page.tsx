@@ -144,7 +144,7 @@ export default function Products() {
       setLoading(true);
       try {
         const SPREADSHEET_ID = "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
-        const GID = "1979478923"; // 제품 시트의 gid
+        const GID = "0"; // 첫 번째 시트 (기본 gid)
         const response = await fetch(
           `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GID}`
         );
@@ -162,36 +162,41 @@ export default function Products() {
           return;
         }
         
-        // 헤더 제외하고 데이터 파싱
+        // 헤더 확인 (id, productName, category, description, specification, productImage)
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        console.log('스프레드시트 헤더:', headers);
+        
+        // 데이터 파싱 (헤더 제외)
         const products = lines.slice(1).map((line, index) => {
-          const values = line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
+          // CSV 파싱 (쉼표로 구분, 따옴표 처리)
+          const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+          const values = line.split(regex).map(value => value.trim().replace(/^"|"$/g, ''));
           
-          // CSV 컬럼: 모델명, 제품종류, 설명, 이미지(base64), 이미지추가(base64), 사양
-          const model = values[0] || '';
-          const kind = values[1] || '';
-          const description = values[2] || '';
-          const imageBase64 = values[3] || '';
-          const imageBase64Extra = values[4] || '';
-          const specification = values[5] || '';
+          // CSV 컬럼: id, productName, category, description, specification, productImage
+          const id = values[0] || '';
+          const productName = values[1] || '';
+          const category = values[2] || '';
+          const description = values[3] || '';
+          const specification = values[4] || '';
+          const productImage = values[5] || '';
           
           // 이미지 처리: base64가 있으면 사용, 없으면 기본 이미지
           let imageUrl = speakerImage; // 기본 이미지
-          if (imageBase64) {
-            // 분할된 이미지가 있으면 합치기
-            const fullBase64 = imageBase64Extra ? imageBase64 + imageBase64Extra : imageBase64;
-            imageUrl = decodeBase64Image(fullBase64);
+          if (productImage && productImage.length > 10) {
+            imageUrl = decodeBase64Image(productImage);
           }
           
-          // 사양 정보 파싱 (줄바꿈으로 구분된 key:value 형식)
+          // 사양 정보 파싱 (쉼표로 구분된 key:value 형식)
           let spec: Record<string, string> | undefined = undefined;
-          if (specification) {
+          if (specification && specification.trim()) {
             spec = {};
-            const specLines = specification.split('\\n'); // CSV에서는 \\n으로 저장됨
-            specLines.forEach(line => {
-              const colonIndex = line.indexOf(':');
+            // 쉼표로 구분된 사양 항목들
+            const specItems = specification.split(',').map(s => s.trim()).filter(s => s);
+            specItems.forEach(item => {
+              const colonIndex = item.indexOf(':');
               if (colonIndex !== -1) {
-                const key = line.substring(0, colonIndex).trim();
-                const value = line.substring(colonIndex + 1).trim();
+                const key = item.substring(0, colonIndex).trim();
+                const value = item.substring(colonIndex + 1).trim();
                 if (key && value) {
                   spec![key] = value;
                 }
@@ -204,10 +209,10 @@ export default function Products() {
           }
           
           return {
-            model,
-            kind,
+            model: productName,
+            kind: category,
             url: imageUrl,
-            alt: model,
+            alt: productName,
             desc: description,
             spec
           };
