@@ -47,8 +47,9 @@ export default function Portfolio() {
     const fetchData = async () => {
       try {
         // Google Sheets를 CSV로 내보내는 URL 사용
+        // gid를 제거하여 기본 시트(설문지 응답 시트1) 사용
         const response = await fetch(
-          'https://docs.google.com/spreadsheets/d/1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs/export?format=csv&gid=0'
+          'https://docs.google.com/spreadsheets/d/1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs/export?format=csv'
         );
         
         if (!response.ok) {
@@ -56,12 +57,14 @@ export default function Portfolio() {
         }
         
         const csvText = await response.text();
+        console.log('📄 포트폴리오 CSV 데이터 (처음 300자):', csvText.substring(0, 300));
         
         // CSV를 파싱하여 데이터 변환
         const lines = csvText.split('\n').filter(line => line.trim() !== '');
         const headers = lines[0].split(',').map(header => header.trim());
 
-        console.log('lines: ', lines[1]);
+        console.log('📋 포트폴리오 헤더:', headers);
+        console.log('📊 포트폴리오 데이터 행 수:', lines.length - 1);
         
         // CSV 라인을 안전하게 파싱하는 함수
         const parseCSVLine = (line: string) => {
@@ -172,37 +175,72 @@ export default function Portfolio() {
         const transformedData = lines.slice(1).map((line, index) => {
           const values = parseCSVLine(line);
           
-          return {
-            id: parseInt(values[0]) || index + 1,
-            title: values[1] || '',
-            description: values[2] || '',
-            location: values[3] || '',
-            date: values[4] ? format(new Date(
-              String(values[4]).slice(0, 4) + '-' + 
-              String(values[4]).slice(4, 6) + '-' + 
-              String(values[4]).slice(6, 8)
-            ), 'yyyy년 MM월 dd일', {locale: ko}) : '',
-            equipment: parseArrayData(values[5]),
-            mainImage: validateImageUrl(values[6]),
-            detailImages: parseArrayData(values[7]).length > 0 
-              ? parseArrayData(values[7]).map(img => validateImageUrl(img))
-              : [example1, example2, example3],
-            alt: values[8] || '',
-            inquiry: values[9] ? (() => {
-              try {
-                const inquiryData = JSON.parse(values[9]);
-                // inquiry 이미지도 유효성 검사
-                if (inquiryData.image) {
-                  inquiryData.image = validateImageUrl(inquiryData.image);
-                }
-                return inquiryData;
-              } catch {
-                return undefined;
+          // 스프레드시트 컬럼 구조:
+          // 0: 타임스탬프, 1: id, 2: title, 3: description, 4: location,
+          // 5: installmentDate, 6: equipment, 7: mainImage, 8: mainImageExtra,
+          // 9: detailImage1, 10: detailImageExtra1, 11: detailImage2,
+          // 12: detailImageExtra2, 13: detailImage3, 14: detailImageExtra3
+          
+          // 이미지 조합 (base64 분할 이미지 합치기)
+          const mainImage = (values[7] || '') + (values[8] || '');
+          const detailImage1 = (values[9] || '') + (values[10] || '');
+          const detailImage2 = (values[11] || '') + (values[12] || '');
+          const detailImage3 = (values[13] || '') + (values[14] || '');
+          
+          // 상세 이미지 배열 생성 (빈 이미지 제외)
+          const detailImages = [detailImage1, detailImage2, detailImage3]
+            .filter(img => img && img.trim() !== '');
+          
+          // 날짜 파싱 (YYYY. MM. DD 형식)
+          let formattedDate = values[5] || '';
+          if (formattedDate) {
+            try {
+              // "2025. 10. 9" 형식을 파싱
+              const dateParts = formattedDate.split('.').map(p => p.trim());
+              if (dateParts.length >= 3) {
+                const year = dateParts[0];
+                const month = dateParts[1].padStart(2, '0');
+                const day = dateParts[2].padStart(2, '0');
+                formattedDate = `${year}년 ${month}월 ${day}일`;
               }
-            })() : undefined
+            } catch (e) {
+              console.warn('날짜 파싱 오류:', e);
+            }
+          }
+          
+          // equipment를 배열로 변환 (쉼표로 구분되어 있다고 가정)
+          const equipmentArray = values[6] 
+            ? values[6].split(',').map(item => item.trim()).filter(item => item)
+            : [];
+          
+          const item = {
+            id: parseInt(values[1]) || index + 1,
+            title: values[2] || '',
+            description: values[3] || '',
+            location: values[4] || '',
+            date: formattedDate,
+            equipment: equipmentArray,
+            mainImage: mainImage || example1,
+            detailImages: detailImages.length > 0 
+              ? detailImages
+              : [example1, example2, example3],
+            alt: values[2] || '시공사례 이미지'
           };
+          
+          console.log(`포트폴리오 ${index + 1}:`, {
+            title: item.title,
+            description: item.description.substring(0, 50) + '...',
+            location: item.location,
+            date: item.date,
+            equipment: item.equipment,
+            mainImageLength: mainImage.length,
+            detailImagesCount: detailImages.length
+          });
+          
+          return item;
         });
 
+        console.log(`✅ 포트폴리오 ${transformedData.length}개를 불러왔습니다.`);
         setCaseList(transformedData);
       } catch (error) {
         console.error('Error fetching data:', error);

@@ -182,7 +182,8 @@ export const createThumbnail = async (
 
 /**
  * 이미지 최적화 (Google Forms용)
- * 목표: 5000자 이하
+ * 전략: 먼저 Base64 인코딩 후 10000자 초과 시에만 압축
+ * 5000자씩 2개 필드에 분할하여 총 10000자까지 저장 가능
  */
 export const optimizeForGoogleForms = async (file: File): Promise<{
   base64: string;
@@ -190,24 +191,108 @@ export const optimizeForGoogleForms = async (file: File): Promise<{
   canSubmit: boolean;
 }> => {
   try {
-    // 1단계: 기본 압축
+    // 1단계: 원본 이미지를 Base64로 인코딩 (압축 없이)
+    const reader = new FileReader();
+    let originalBase64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = () => reject(new Error('파일 읽기 실패'));
+      reader.readAsDataURL(file);
+    });
+
+    let size = originalBase64.length;
+    console.log(`📊 원본 Base64 크기: ${size}자 (${Math.round(getBase64Size(originalBase64) / 1024)}KB)`);
+
+    // 10000자 이하면 압축 없이 그대로 사용
+    if (size <= 10000) {
+      console.log('✅ 10000자 이하이므로 압축 없이 원본 사용');
+      return { 
+        base64: originalBase64, 
+        size, 
+        canSubmit: true 
+      };
+    }
+
+    // 2단계: 10000자 초과 시에만 압축 시작
+    console.log('⚠️ 10000자 초과, 압축 진행...');
+    
     let base64 = await compressImageToBase64(file, {
-      maxWidth: 400,
-      maxHeight: 400,
-      quality: 0.5,
+      maxWidth: 1200,  // 고품질 유지
+      maxHeight: 1200,
+      quality: 0.9,    // 최고 품질
       format: 'image/jpeg'
     });
 
-    let size = base64.length;
+    size = base64.length;
+    console.log(`1단계 압축 완료: ${size}자`);
 
-    // 2단계: 5000자 초과 시 추가 압축
-    if (size > 5000) {
-      console.log('5000자 초과, 추가 압축 진행...');
-      base64 = await recompressBase64(base64, 30); // 30KB 목표
-      size = base64.length;
+    // 3단계: 여전히 10000자 초과 시 점진적 압축
+    if (size > 10000) {
+      console.log('10000자 초과, 점진적 압축 진행...');
+      
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('이미지 로드 실패'));
+        img.src = base64;
+      });
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        let width = 1200;
+        let height = 1200;
+        let quality = 0.9;
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        while (size > 10000 && attempts < maxAttempts) {
+          canvas.width = width;
+          canvas.height = height;
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          base64 = canvas.toDataURL('image/jpeg', quality);
+          size = base64.length;
+          
+          console.log(`압축 시도 ${attempts + 1}: ${width}x${height}, 품질=${quality.toFixed(2)}, 크기=${size}자`);
+          
+          if (size > 10000) {
+            // 품질을 먼저 조금씩 낮춤 (0.02씩)
+            if (quality > 0.6) {
+              quality -= 0.02;
+            } 
+            // 품질이 0.6 이하면 크기를 줄임 (5%씩)
+            else {
+              width = Math.floor(width * 0.95);
+              height = Math.floor(height * 0.95);
+              quality = 0.8; // 크기를 줄일 때마다 품질 리셋
+            }
+          }
+          
+          attempts++;
+        }
+        
+        // 최종적으로 10000자를 초과하면 강제 압축
+        if (size > 10000) {
+          console.log('강제 압축 진행...');
+          quality = 0.7;
+          width = Math.floor(width * 0.9);
+          height = Math.floor(height * 0.9);
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          base64 = canvas.toDataURL('image/jpeg', quality);
+          size = base64.length;
+        }
+      }
+      
+      console.log(`2단계 압축 완료: ${size}자`);
     }
 
-    const canSubmit = size <= 5000;
+    const canSubmit = size <= 10000;
 
     console.log('Google Forms 최적화 결과:', {
       최종크기: `${size}자`,

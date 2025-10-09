@@ -22,6 +22,7 @@ export default function Manager() {
     // 시공사례 관리 상태
     const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
     const [portfolioLoading, setPortfolioLoading] = useState(false);
+    const [showAddPortfolio, setShowAddPortfolio] = useState(false);
     const [managerUser, setManagerUser] = useState<ManagerUser | null>(null);
     const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
     const [uploadForm, setUploadForm] = useState({
@@ -30,8 +31,16 @@ export default function Manager() {
         location: '',
         installmentDate: '',
         equipment: '',
-        mainImage: null as File | null,
-        detailImages: [] as File[]
+        mainImage: '' as string,
+        mainImageExtra: '' as string,
+        detailImage1: '' as string,
+        detailImageExtra1: '' as string,
+        detailImage2: '' as string,
+        detailImageExtra2: '' as string,
+        detailImage3: '' as string,
+        detailImageExtra3: '' as string,
+        mainImageFile: null as File | null,
+        detailImageFiles: [] as File[]
     });
     
     // 제품 관리 상태
@@ -48,6 +57,7 @@ export default function Manager() {
     const [showAddProduct, setShowAddProduct] = useState(false);
     const [loading, setLoading] = useState(false);
     const [imageUploading, setImageUploading] = useState(false);
+    const [portfolioImageUploading, setPortfolioImageUploading] = useState(false);
     
     // 스프레드시트 관리 상태
     const [spreadsheetData, setSpreadsheetData] = useState<ProductData[]>([]);
@@ -75,6 +85,7 @@ export default function Manager() {
         setManagerUser(null);
         setCurrentView('menu');
         setShowAddProduct(false);
+        setShowAddPortfolio(false);
         managerStorage.clear();
     };
 
@@ -161,33 +172,172 @@ export default function Manager() {
         }));
     };
 
-    const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
+        
+        if (file) {
+            // 파일 크기 체크 (5MB 제한)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('이미지 파일 크기는 5MB 이하여야 합니다.');
+                return;
+            }
+            
+            // 파일 타입 체크
+            if (!file.type.startsWith('image/')) {
+                alert('이미지 파일만 업로드 가능합니다.');
+                return;
+            }
+            
+            setPortfolioImageUploading(true);
+            
+            try {
+                // Google Forms용 이미지 최적화
+                const result = await optimizeForGoogleForms(file);
+                
+                const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
+                
+                // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
+                if (result.base64.length > 10000) {
+                    alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                    setPortfolioImageUploading(false);
+                    return;
+                }
+                
+                // 5000자 초과 시 분할 저장
+                let mainImage = result.base64;
+                let mainImageExtra = '';
+                
+                if (result.base64.length > 5000) {
+                    mainImage = result.base64.substring(0, 5000);
+                    mainImageExtra = result.base64.substring(5000);
+                    console.log(`✂️ 메인 이미지 분할: ${result.base64.length}자 → ${mainImage.length}자 + ${mainImageExtra.length}자`);
+                } else {
+                    console.log(`✅ 메인 이미지 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
+                }
+                
         setUploadForm(prev => ({
             ...prev,
-            mainImage: file
-        }));
+                    mainImage,
+                    mainImageExtra,
+                    mainImageFile: file
+                }));
+            } catch (error) {
+                console.error('이미지 인코딩 오류:', error);
+                alert('이미지 처리 중 오류가 발생했습니다.');
+            } finally {
+                setPortfolioImageUploading(false);
+            }
+        }
     };
 
-    const handleDetailImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        setUploadForm(prev => ({
-            ...prev,
-            detailImages: [...prev.detailImages, ...files]
-        }));
+    const handleDetailImageChange = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        
+        if (!file) return;
+        
+        // 파일 크기 체크 (5MB 제한)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('이미지 파일 크기는 5MB 이하여야 합니다.');
+            return;
+        }
+        
+        // 파일 타입 체크
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        
+        setPortfolioImageUploading(true);
+        
+        try {
+            // Google Forms용 이미지 최적화
+            const result = await optimizeForGoogleForms(file);
+            
+            const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
+            
+            // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
+            if (result.base64.length > 10000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                setPortfolioImageUploading(false);
+                return;
+            }
+            
+            // 5000자 초과 시 분할 저장
+            let detailImage = result.base64;
+            let detailImageExtra = '';
+            
+            if (result.base64.length > 5000) {
+                detailImage = result.base64.substring(0, 5000);
+                detailImageExtra = result.base64.substring(5000);
+                console.log(`✂️ 상세 이미지 ${index + 1} 분할: ${result.base64.length}자 → ${detailImage.length}자 + ${detailImageExtra.length}자`);
+            } else {
+                console.log(`✅ 상세 이미지 ${index + 1} 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
+            }
+            
+            // 인덱스에 따라 적절한 필드 업데이트
+            setUploadForm(prev => {
+                const newFiles = [...(prev.detailImageFiles || [])];
+                newFiles[index] = file;
+                
+                const updates: any = {
+                    detailImageFiles: newFiles
+                };
+                
+                if (index === 0) {
+                    updates.detailImage1 = detailImage;
+                    updates.detailImageExtra1 = detailImageExtra;
+                } else if (index === 1) {
+                    updates.detailImage2 = detailImage;
+                    updates.detailImageExtra2 = detailImageExtra;
+                } else if (index === 2) {
+                    updates.detailImage3 = detailImage;
+                    updates.detailImageExtra3 = detailImageExtra;
+                }
+                
+                return { ...prev, ...updates };
+            });
+        } catch (error) {
+            console.error('이미지 인코딩 오류:', error);
+            alert('이미지 처리 중 오류가 발생했습니다.');
+        } finally {
+            setPortfolioImageUploading(false);
+        }
     };
 
     const removeDetailImage = (index: number) => {
-        setUploadForm(prev => ({
+        setUploadForm(prev => {
+            const newFiles = [...prev.detailImageFiles];
+            newFiles[index] = undefined as any; // 해당 인덱스만 제거
+            
+            const updates: any = {
+                detailImageFiles: newFiles.filter(Boolean) // undefined 제거
+            };
+            
+            // 해당 인덱스의 이미지 필드 초기화
+            if (index === 0) {
+                updates.detailImage1 = '';
+                updates.detailImageExtra1 = '';
+            } else if (index === 1) {
+                updates.detailImage2 = '';
+                updates.detailImageExtra2 = '';
+            } else if (index === 2) {
+                updates.detailImage3 = '';
+                updates.detailImageExtra3 = '';
+            }
+            
+            return {
             ...prev,
-            detailImages: prev.detailImages.filter((_, i) => i !== index)
-        }));
+                ...updates
+            };
+        });
     };
 
     const removeMainImage = () => {
         setUploadForm(prev => ({
             ...prev,
-            mainImage: null
+            mainImage: '',
+            mainImageExtra: '',
+            mainImageFile: null
         }));
     };
 
@@ -199,71 +349,62 @@ export default function Manager() {
             return;
         }
 
-        const formData = new FormData();
-        formData.append('title', uploadForm.title);
-        formData.append('description', uploadForm.description);
-        formData.append('location', uploadForm.location);
-        formData.append('installmentDate', uploadForm.installmentDate);
-        formData.append('equipment', uploadForm.equipment);
-        
-        if (uploadForm.mainImage) {
-            formData.append('mainImage', uploadForm.mainImage);
-        }
-        
-        uploadForm.detailImages.forEach((file, index) => {
-            formData.append(`detailImage_${index}`, file);
-        });
-
         try {
-            // 이미지 파일들을 업로드하고 URL을 받아오는 함수 (실제 구현에서는 이미지 호스팅 서비스 사용)
-            const uploadImageToHosting = async (file: File): Promise<string> => {
-                // 실제 구현에서는 이미지 호스팅 서비스 (예: Cloudinary, AWS S3 등)를 사용
-                // 현재는 임시로 파일명을 반환
-                return `https://example.com/images/${file.name}`;
-            };
+            // 날짜 파싱 (YYYY-MM-DD → 년/월/일)
+            const dateParts = uploadForm.installmentDate.split('-');
+            const year = dateParts[0] || '';
+            const month = dateParts[1] || '';
+            const day = dateParts[2] || '';
+            
+            // Google Form entry ID 매핑
+            const formData = new URLSearchParams({
+                'entry.268525121': uploadForm.title,                    // title
+                'entry.445250326': uploadForm.description,              // description
+                'entry.1338649390': uploadForm.location,                // location
+                'entry.1875876176_year': year,                          // installmentDate (년)
+                'entry.1875876176_month': month,                        // installmentDate (월)
+                'entry.1875876176_day': day,                            // installmentDate (일)
+                'entry.1941840310': uploadForm.equipment,               // equipment
+                'entry.1962300566': uploadForm.mainImage,               // mainImage
+                'entry.1304580810': uploadForm.mainImageExtra,          // mainImageExtra
+                'entry.405209635': uploadForm.detailImage1,             // detailImage1
+                'entry.1965732542': uploadForm.detailImageExtra1,       // detailImageExtra1
+                'entry.1974154502': uploadForm.detailImage2,            // detailImage2
+                'entry.468946990': uploadForm.detailImageExtra2,        // detailImageExtra2
+                'entry.1004128133': uploadForm.detailImage3,            // detailImage3
+                'entry.896297628': uploadForm.detailImageExtra3         // detailImageExtra3
+            });
 
-            let mainImageUrl = '';
-            let detailImageUrls: string[] = [];
-
-            // 메인 이미지 업로드
-            if (uploadForm.mainImage) {
-                mainImageUrl = await uploadImageToHosting(uploadForm.mainImage);
-            }
-
-            // 상세 이미지들 업로드
-            for (const file of uploadForm.detailImages) {
-                const url = await uploadImageToHosting(file);
-                detailImageUrls.push(url);
-            }
-
-            // Google Sheets에 추가할 데이터 준비
-            const newRowData = {
-                id: Date.now(), // 임시 ID (실제로는 시트의 마지막 ID + 1)
+            console.log('시공사례 제출 데이터:', {
                 title: uploadForm.title,
                 description: uploadForm.description,
                 location: uploadForm.location,
-                date: uploadForm.installmentDate.replace(/-/g, ''), // YYYYMMDD 형식으로 변환
+                date: `${year}-${month}-${day}`,
                 equipment: uploadForm.equipment,
-                mainImage: mainImageUrl,
-                detailImages: detailImageUrls.join(','), // 배열을 쉼표로 구분된 문자열로 변환
-                alt: uploadForm.title,
-                inquiry: '' // 빈 문자열로 초기화
-            };
-
-            // Google Apps Script 웹훅 URL (실제 URL로 교체 필요)
-            const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
-            
-            const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newRowData)
+                mainImageLength: uploadForm.mainImage.length,
+                mainImageExtraLength: uploadForm.mainImageExtra.length,
+                detailImage1Length: uploadForm.detailImage1.length,
+                detailImage2Length: uploadForm.detailImage2.length,
+                detailImage3Length: uploadForm.detailImage3.length
             });
 
-            if (response.ok) {
-                console.log('Google Sheets에 데이터가 성공적으로 추가되었습니다:', newRowData);
-                alert('고객 사례가 성공적으로 업로드되었습니다!');
+            // Google Form URL
+            // https://docs.google.com/forms/d/e/1FAIpQLSdKF-fqAz5NIvIIo6kPhp-GbAk7E1Tub-EXIqWvcpmHLX7ptQ/viewform
+            const PORTFOLIO_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdKF-fqAz5NIvIIo6kPhp-GbAk7E1Tub-EXIqWvcpmHLX7ptQ/formResponse';
+            
+            // Google Form에 제출
+            const response = await fetch(PORTFOLIO_FORM_URL, {
+                method: 'POST',
+                mode: 'no-cors', // Google Form은 CORS를 지원하지 않으므로
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            });
+
+            // no-cors 모드에서는 response.ok를 확인할 수 없으므로 성공으로 간주
+            console.log('시공사례 데이터가 Google Form에 제출되었습니다.');
+            alert('시공사례가 성공적으로 업로드되었습니다!');
                 
                 // 폼 초기화
                 setUploadForm({
@@ -272,12 +413,23 @@ export default function Manager() {
                     location: '',
                     installmentDate: '',
                     equipment: '',
-                    mainImage: null,
-                    detailImages: []
-                });
-            } else {
-                throw new Error('Google Sheets 업로드 실패');
-            }
+                mainImage: '',
+                mainImageExtra: '',
+                detailImage1: '',
+                detailImageExtra1: '',
+                detailImage2: '',
+                detailImageExtra2: '',
+                detailImage3: '',
+                detailImageExtra3: '',
+                mainImageFile: null,
+                detailImageFiles: []
+            });
+            
+            // 모달 닫기
+            setShowAddPortfolio(false);
+            
+            // 시공사례 목록 새로고침
+            fetchPortfolioItems();
 
         } catch (error) {
             console.error('업로드 에러:', error);
@@ -309,30 +461,101 @@ export default function Manager() {
             const csvText = await response.text();
             console.log('📄 시공사례 CSV 데이터 (처음 200자):', csvText.substring(0, 200));
             
-            // CSV 파싱 (제품과 동일한 방식)
-            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            // CSV 파싱 (복잡한 필드 처리 - 제품 목록과 동일한 방식)
+            const parseCSV = (text: string) => {
+                const rows: string[][] = [];
+                let currentRow: string[] = [];
+                let currentField = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    const nextChar = text[i + 1];
+
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            currentField += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        currentRow.push(currentField);
+                        currentField = '';
+                    } else if (char === '\n' && !inQuotes) {
+                        currentRow.push(currentField);
+                        if (currentRow.some(field => field.trim() !== '')) {
+                            rows.push(currentRow);
+                        }
+                        currentRow = [];
+                        currentField = '';
+                    } else {
+                        currentField += char;
+                    }
+                }
+
+                if (currentField || currentRow.length > 0) {
+                    currentRow.push(currentField);
+                    if (currentRow.some(field => field.trim() !== '')) {
+                        rows.push(currentRow);
+                    }
+                }
+
+                return rows;
+            };
+
+            const rows = parseCSV(csvText);
+            console.log('📊 파싱된 행 수:', rows.length);
             
-            if (lines.length <= 1) {
+            if (rows.length <= 1) {
                 console.warn('시공사례 데이터가 없습니다.');
                 setPortfolioItems([]);
                 return;
             }
             
-            const headers = lines[0].split(',').map(h => h.trim());
+            const headers = rows[0];
             console.log('📋 시공사례 헤더:', headers);
             
-            const items = lines.slice(1).map((line, index) => {
-                const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            const items = rows.slice(1).map((values, index) => {
+                // 스프레드시트 컬럼 구조:
+                // 0: 타임스탬프, 1: id, 2: title, 3: description, 4: location, 
+                // 5: installmentDate, 6: equipment, 7: mainImage, 8: mainImageExtra,
+                // 9: detailImage1, 10: detailImageExtra1, 11: detailImage2, 
+                // 12: detailImageExtra2, 13: detailImage3, 14: detailImageExtra3
+                
+                const title = values[2]?.trim() || '';
+                const description = values[3]?.trim() || '';
+                const location = values[4]?.trim() || '';
+                const date = values[5]?.trim() || '';
+                const equipment = values[6]?.trim() || '';
+                
+                // 이미지 조합 (mainImage + mainImageExtra)
+                const mainImage = (values[7]?.trim() || '') + (values[8]?.trim() || '');
+                const detailImage1 = (values[9]?.trim() || '') + (values[10]?.trim() || '');
+                const detailImage2 = (values[11]?.trim() || '') + (values[12]?.trim() || '');
+                const detailImage3 = (values[13]?.trim() || '') + (values[14]?.trim() || '');
+                
+                console.log(`시공사례 ${index + 1}:`, {
+                    title,
+                    description: description.substring(0, 50) + '...',
+                    location,
+                    date,
+                    equipment: equipment.substring(0, 50) + '...',
+                    mainImageLength: mainImage.length,
+                    detailImage1Length: detailImage1.length,
+                    detailImage2Length: detailImage2.length,
+                    detailImage3Length: detailImage3.length
+                });
                 
                 return {
                     id: index + 1,
-                    title: values[0] || '',
-                    description: values[1] || '',
-                    location: values[2] || '',
-                    date: values[3] || '',
-                    equipment: values[4] || '',
-                    mainImage: values[5] || '',
-                    detailImages: values[6] || ''
+                    title,
+                    description,
+                    location,
+                    date,
+                    equipment,
+                    mainImage,
+                    detailImages: [detailImage1, detailImage2, detailImage3].filter(img => img)
                 };
             }).filter(item => item.title);
             
@@ -447,14 +670,14 @@ export default function Manager() {
                 
                 const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
                 
-                // 10000자 초과 시 업로드 차단
+                // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
                 if (result.base64.length > 10000) {
                     alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
                     setImageUploading(false);
                     return;
                 }
                 
-                // 5000자 초과 시 분할 저장 (알림 없이)
+                // 5000자 초과 시 분할 저장
                 let mainImage = result.base64;
                 let extraImage = '';
                 
@@ -463,7 +686,7 @@ export default function Manager() {
                     extraImage = result.base64.substring(5000);
                     console.log(`✂️ 이미지 분할: ${result.base64.length}자 → ${mainImage.length}자 + ${extraImage.length}자`);
             } else {
-                    console.log(`✅ 이미지 최적화 완료: ${result.size}자 (${sizeKB}KB)`);
+                    console.log(`✅ 이미지 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
                 }
                 
                 setProductForm(prev => ({
@@ -544,7 +767,7 @@ export default function Manager() {
                             <div className="w-full bg-gray-200 text-gray-500 py-4 px-6 rounded-lg flex items-center justify-center space-x-3">
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
                                 <span>Google 로그인을 불러오는 중...</span>
-                                                                </div>
+                            </div>
                                                             )}
 
                         {/* 보안 안내 */}
@@ -569,13 +792,13 @@ export default function Manager() {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <button
+                            <button 
                                 onClick={() => setCurrentView('portfolio')}
                                 className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
-                                        >
+                            >
                                 <h3 className="text-2xl font-semibold text-white mb-2">시공사례 관리</h3>
                                 <p className="text-gray-300">시공 사례를 확인하고 관리할 수 있습니다</p>
-                                        </button>
+                            </button>
                                     
                                     <button
                                         onClick={() => setCurrentView('products')}
@@ -584,7 +807,7 @@ export default function Manager() {
                                 <h3 className="text-2xl font-semibold text-white mb-2">제품 관리</h3>
                                 <p className="text-gray-300">제품 정보를 확인하고 관리할 수 있습니다</p>
                                                     </button>
-                                            </div>
+                    </div>
 
                                 <div className="mt-8 text-center">
                                         <button
@@ -600,12 +823,20 @@ export default function Manager() {
                     <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
                         <div className="mb-8 flex justify-between items-center">
                             <h2 className="text-3xl font-bold text-white">시공사례 관리</h2>
-                            <button
-                                onClick={() => setCurrentView('menu')}
-                                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-                            >
-                                메뉴로 돌아가기
-                            </button>
+                            <div className="space-x-4">
+                                <button
+                                    onClick={() => setShowAddPortfolio(true)}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    새 시공사례 추가
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('menu')}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    메뉴로 돌아가기
+                                </button>
+                            </div>
                         </div>
                         
                         {/* 시공사례 목록 */}
@@ -620,6 +851,12 @@ export default function Manager() {
                             ) : portfolioItems.length === 0 ? (
                                 <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50">
                                     <p className="text-gray-400 mb-4">등록된 시공사례가 없습니다</p>
+                                    <button
+                                        onClick={() => setShowAddPortfolio(true)}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                    >
+                                        첫 번째 시공사례 추가하기
+                                    </button>
                     </div>
                 ) : (
                                 <div className="space-y-3">
@@ -664,172 +901,6 @@ export default function Manager() {
                                     ))}
                                 </div>
                             )}
-                        </div>
-                        
-                        {/* 기존 업로드 폼은 아래에 유지 */}
-                        <div className="mt-8 pt-8 border-t border-slate-700">
-                            <h3 className="text-xl font-semibold text-white mb-4">새 시공사례 추가</h3>
-                        
-                        <form onSubmit={handleUploadSubmit} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    제목 *
-                                </label>
-                                <input
-                                    type="text"
-                                    name="title"
-                                    value={uploadForm.title}
-                                    onChange={handleUploadFormChange}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 backdrop-blur-sm"
-                                    placeholder="고객 사례 제목을 입력하세요"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    설명 *
-                                </label>
-                                <textarea
-                                    name="description"
-                                    value={uploadForm.description}
-                                    onChange={handleUploadFormChange}
-                                    rows={4}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 backdrop-blur-sm resize-none"
-                                    placeholder="고객 사례에 대한 상세 설명을 입력하세요"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    시공 장소 *
-                                </label>
-                                <input
-                                    type="text"
-                                    name="location"
-                                    value={uploadForm.location}
-                                    onChange={handleUploadFormChange}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 backdrop-blur-sm"
-                                    placeholder="시공 장소를 입력하세요 (예: 서울시 강남구)"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    시공 일자 *
-                                </label>
-                                <input
-                                    type="date"
-                                    name="installmentDate"
-                                    value={uploadForm.installmentDate}
-                                    onChange={handleUploadFormChange}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white backdrop-blur-sm"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    사용 장비 *
-                                </label>
-                                <textarea
-                                    name="equipment"
-                                    value={uploadForm.equipment}
-                                    onChange={handleUploadFormChange}
-                                    rows={3}
-                                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 backdrop-blur-sm resize-none"
-                                    placeholder="사용된 장비 목록을 입력하세요 (예: E212 스피커 2대, 조명기 10대)"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    메인 이미지
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                                        onChange={handleMainImageChange}
-                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 backdrop-blur-sm"
-                                    />
-                                </div>
-                                <p className="text-sm text-gray-400 mt-1">대표 이미지를 선택하세요.</p>
-                                
-                                {uploadForm.mainImage && (
-                                    <div className="mt-4">
-                                        <div className="relative inline-block">
-                                            <img
-                                                src={URL.createObjectURL(uploadForm.mainImage)}
-                                                alt="메인 이미지 미리보기"
-                                                className="w-32 h-32 object-cover rounded-lg border border-slate-600/50"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={removeMainImage}
-                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-1 truncate">{uploadForm.mainImage.name}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-200 mb-2">
-                                    상세 이미지
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                                        onChange={handleDetailImagesChange}
-                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 backdrop-blur-sm"
-                                    />
-                                </div>
-                                <p className="text-sm text-gray-400 mt-1">여러 상세 이미지를 선택할 수 있습니다.</p>
-                                
-                                {uploadForm.detailImages.length > 0 && (
-                                    <div className="mt-4">
-                                        <label className="block text-sm font-medium text-gray-200 mb-2">
-                                            선택된 상세 이미지 ({uploadForm.detailImages.length}개)
-                                        </label>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {uploadForm.detailImages.map((file, index) => (
-                                                <div key={index} className="relative">
-                                                    <img
-                                                        src={URL.createObjectURL(file)}
-                                                        alt={`상세 이미지 미리보기 ${index + 1}`}
-                                                        className="w-full h-24 object-cover rounded-lg border border-slate-600/50"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeDetailImage(index)}
-                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                    <p className="text-xs text-gray-400 mt-1 truncate">{file.name}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                </div>
-
-                            <button
-                                type="submit"
-                                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-300 font-medium shadow-lg"
-                            >
-                                시공사례 업로드
-                            </button>
-                        </form>
                         </div>
                     </div>
                 ) : currentView === 'products' ? (
@@ -960,7 +1031,7 @@ export default function Manager() {
                                             {spreadsheetData.map((product, index) => (
                                                 <div key={product.id} className="bg-slate-800/50 rounded p-3">
                                                     <div className="flex justify-between items-start">
-                                                        <div>
+                            <div>
                                                             <h5 className="text-white font-medium">{product.model}</h5>
                                                             <p className="text-gray-400 text-sm">{product.kind}</p>
                                                         </div>
@@ -1100,33 +1171,33 @@ export default function Manager() {
                                         >
                                     ✕
                                         </button>
-                                    </div>
-                                    
+                            </div>
+
                             <div className="p-5 space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
+                            <div>
                                         <label className="block text-sm text-gray-300 mb-1">모델명</label>
-                                        <input
+                                <input 
                                             name="productName"
                                             value={productForm.productName}
                                             onChange={handleProductFormChange}
                                             className="w-full bg-slate-800 text-white rounded-lg border border-slate-700 px-3 py-2"
                                             placeholder="예: E212"
-                                        />
-                                    </div>
-                                    <div>
+                                />
+                            </div>
+                            <div>
                                         <label className="block text-sm text-gray-300 mb-1">제품종류</label>
-                                        <input
+                                <input 
                                             name="category"
                                             value={productForm.category}
                                             onChange={handleProductFormChange}
                                             className="w-full bg-slate-800 text-white rounded-lg border border-slate-700 px-3 py-2"
                                             placeholder="예: 메인 스피커"
-                                        />
-                                    </div>
+                                />
+                            </div>
                                     </div>
 
-                                    <div>
+                            <div>
                                     <label className="block text-sm text-gray-300 mb-1">설명</label>
                                         <textarea
                                             name="description"
@@ -1135,25 +1206,25 @@ export default function Manager() {
                                             rows={4}
                                         className="w-full bg-slate-800 text-white rounded-lg border border-slate-700 px-3 py-2"
                                         placeholder="제품 설명을 입력하세요"
-                                        />
-                                    </div>
+                                />
+                            </div>
 
-                                    <div>
+                            <div>
                                     <label className="block text-sm text-gray-300 mb-1">사양 정보</label>
-                                        <textarea
+                                <textarea
                                             name="specification"
                                             value={productForm.specification}
                                             onChange={handleProductFormChange}
                                             rows={6}
                                         className="w-full bg-slate-800 text-white rounded-lg border border-slate-700 px-3 py-2"
                                         placeholder="TYPE: 2WAY PASSIVE SPEAKER&#10;POWER: 1400/2800&#10;FREQUENCY RESPONSE: 45HZ - 18,000HZ"
-                                        />
-                                    </div>
+                                />
+                            </div>
 
-                                    <div>
+                            <div>
                                     <label className="block text-sm text-gray-300 mb-1">대표 이미지</label>
-                                            <input
-                                                type="file"
+                                    <input
+                                        type="file"
                                         accept="image/*"
                                                 onChange={handleProductImageChange}
                                         disabled={imageUploading}
@@ -1190,8 +1261,8 @@ export default function Manager() {
                                                             </p>
                             </div>
                         )}
-                                                </div>
-                                    <button
+                            </div>
+                            <button 
                                                     type="button"
                                                     onClick={() => {
                                                         setProductForm(prev => ({
@@ -1203,8 +1274,8 @@ export default function Manager() {
                                                     className="text-red-400 hover:text-red-300 text-sm"
                                                 >
                                                     제거
-                                    </button>
-                                </div>
+                            </button>
+                    </div>
                         
                                             {/* 이미지 미리보기 */}
                                             {productForm.mainImage && (
@@ -1235,11 +1306,11 @@ export default function Manager() {
                                             </button>
                                         </div>
                                             )}
-                    </div>
-                )}
+                                    </div>
+                                )}
                             </div>
-                                </div>
-
+                        </div>
+                        
                             <div className="p-5 border-t border-slate-700 flex justify-end space-x-3">
                                                     <button
                                     className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg"
@@ -1299,11 +1370,316 @@ export default function Manager() {
                                 >
                                     {imageUploading ? '처리 중...' : 'Google Form으로 제출'}
                             </button>
-                            </div>
+                    </div>
                 </div>
             </div>
                                     </div>
                                 )}
+                                
+            {/* 시공사례 추가 모달 */}
+            {showAddPortfolio && (
+                <div className="fixed inset-0 z-50">
+                    <div 
+                        className="absolute inset-0 bg-black/70" 
+                        onClick={() => setShowAddPortfolio(false)}
+                    />
+                    <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto pt-8">
+                        <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl my-4">
+                            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                                <h3 className="text-2xl font-bold text-white">새 시공사례 추가</h3>
+                                <button
+                                    className="text-gray-400 hover:text-white text-2xl"
+                                    onClick={() => setShowAddPortfolio(false)}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            
+                            <form onSubmit={handleUploadSubmit} className="p-6 space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    제목 *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="title"
+                                    value={uploadForm.title}
+                                    onChange={handleUploadFormChange}
+                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400"
+                                        placeholder="시공사례 제목을 입력하세요"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    설명 *
+                                </label>
+                                <textarea
+                                    name="description"
+                                    value={uploadForm.description}
+                                    onChange={handleUploadFormChange}
+                                    rows={4}
+                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 resize-none"
+                                        placeholder="시공사례에 대한 상세 설명을 입력하세요"
+                                    required
+                                />
+                            </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    시공 장소 *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="location"
+                                    value={uploadForm.location}
+                                    onChange={handleUploadFormChange}
+                                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400"
+                                            placeholder="예: 서울시 강남구"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    시공 일자 *
+                                </label>
+                                <input
+                                    type="date"
+                                    name="installmentDate"
+                                    value={uploadForm.installmentDate}
+                                    onChange={handleUploadFormChange}
+                                            className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white"
+                                    required
+                                />
+                                    </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    사용 장비 *
+                                </label>
+                                <textarea
+                                    name="equipment"
+                                    value={uploadForm.equipment}
+                                    onChange={handleUploadFormChange}
+                                    rows={3}
+                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-white placeholder-gray-400 resize-none"
+                                        placeholder="예: E212 스피커 2대, 조명기 10대"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    메인 이미지
+                                </label>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                        onChange={handleMainImageChange}
+                                        disabled={portfolioImageUploading}
+                                        className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50"
+                                    />
+                                <p className="text-sm text-gray-400 mt-1">대표 이미지를 선택하세요. (최대 5MB, 자동으로 5000자 이하로 압축됩니다)</p>
+                                
+                                    {portfolioImageUploading && (
+                                        <div className="mt-2 flex items-center space-x-2">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                            <span className="text-sm text-gray-400">이미지 처리 중...</span>
+                                </div>
+                                    )}
+                                
+                                    {uploadForm.mainImageFile && !portfolioImageUploading && (
+                                        <div className="mt-3 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm text-gray-400">선택된 파일: {uploadForm.mainImageFile.name}</p>
+                                {uploadForm.mainImage && (
+                                                        <div className="mt-1 space-y-1">
+                                                            <p className="text-xs text-green-400">
+                                                                ✅ 첫 번째 부분: {uploadForm.mainImage.length}자 
+                                                                ({Math.round(getBase64Size(uploadForm.mainImage) / 1024)}KB)
+                                                            </p>
+                                                            {uploadForm.mainImageExtra && (
+                                                                <p className="text-xs text-blue-400">
+                                                                    ➕ 추가 부분: {uploadForm.mainImageExtra.length}자 
+                                                                    ({Math.round(getBase64Size(uploadForm.mainImageExtra) / 1024)}KB)
+                                                                </p>
+                                                            )}
+                                                            <p className="text-xs text-gray-500">
+                                                                📊 총 크기: {uploadForm.mainImage.length + (uploadForm.mainImageExtra?.length || 0)}자
+                                                                {uploadForm.mainImageExtra ? ' (2개 필드로 분할 저장)' : ' (단일 필드 저장)'}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            <button
+                                                type="button"
+                                                onClick={removeMainImage}
+                                                    className="text-red-400 hover:text-red-300 text-sm"
+                                            >
+                                                    제거
+                                            </button>
+                                        </div>
+
+                                            <img
+                                                src={URL.createObjectURL(uploadForm.mainImageFile)}
+                                                alt="메인 이미지 미리보기"
+                                                className="w-full max-w-xs rounded-lg border border-slate-600"
+                                            />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="block text-sm font-medium text-gray-200 mb-2">
+                                    상세 이미지 (최대 3개)
+                                </label>
+                                
+                                {/* 상세 이미지 1 */}
+                                <div className="border border-slate-600/50 rounded-lg p-4 bg-slate-800/30">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        상세 이미지 1
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                        onChange={(e) => handleDetailImageChange(0, e)}
+                                        disabled={portfolioImageUploading}
+                                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50"
+                                    />
+                                    
+                                    {uploadForm.detailImageFiles[0] && !portfolioImageUploading && (
+                                        <div className="mt-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[0].name}</p>
+                                                    <p className="text-xs text-green-400">
+                                                        ✅ {uploadForm.detailImage1.length}자
+                                                        {uploadForm.detailImageExtra1 && ` + ${uploadForm.detailImageExtra1.length}자`}
+                                                    </p>
+                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => removeDetailImage(0)}
+                                                    className="text-red-400 hover:text-red-300 text-xs"
+                                                >
+                                                    제거
+                                                </button>
+                                            </div>
+                                            <img
+                                                src={URL.createObjectURL(uploadForm.detailImageFiles[0])}
+                                                alt="상세 이미지 1"
+                                                className="w-full max-w-xs rounded-lg border border-slate-600"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 상세 이미지 2 */}
+                                <div className="border border-slate-600/50 rounded-lg p-4 bg-slate-800/30">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        상세 이미지 2
+                                        </label>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                        onChange={(e) => handleDetailImageChange(1, e)}
+                                        disabled={portfolioImageUploading}
+                                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50"
+                                    />
+                                    
+                                    {uploadForm.detailImageFiles[1] && !portfolioImageUploading && (
+                                        <div className="mt-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[1].name}</p>
+                                                    <p className="text-xs text-green-400">
+                                                        ✅ {uploadForm.detailImage2.length}자
+                                                        {uploadForm.detailImageExtra2 && ` + ${uploadForm.detailImageExtra2.length}자`}
+                                                    </p>
+                                                </div>
+                                                    <button
+                                                        type="button"
+                                                    onClick={() => removeDetailImage(1)}
+                                                    className="text-red-400 hover:text-red-300 text-xs"
+                                                    >
+                                                    제거
+                                                    </button>
+                                                </div>
+                                            <img
+                                                src={URL.createObjectURL(uploadForm.detailImageFiles[1])}
+                                                alt="상세 이미지 2"
+                                                className="w-full max-w-xs rounded-lg border border-slate-600"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 상세 이미지 3 */}
+                                <div className="border border-slate-600/50 rounded-lg p-4 bg-slate-800/30">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        상세 이미지 3
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                        onChange={(e) => handleDetailImageChange(2, e)}
+                                        disabled={portfolioImageUploading}
+                                        className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50"
+                                    />
+                                    
+                                    {uploadForm.detailImageFiles[2] && !portfolioImageUploading && (
+                                        <div className="mt-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[2].name}</p>
+                                                    <p className="text-xs text-green-400">
+                                                        ✅ {uploadForm.detailImage3.length}자
+                                                        {uploadForm.detailImageExtra3 && ` + ${uploadForm.detailImageExtra3.length}자`}
+                                                    </p>
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => removeDetailImage(2)}
+                                                    className="text-red-400 hover:text-red-300 text-xs"
+                                                >
+                                                    제거
+                                                </button>
+                                            </div>
+                                            <img
+                                                src={URL.createObjectURL(uploadForm.detailImageFiles[2])}
+                                                alt="상세 이미지 3"
+                                                className="w-full max-w-xs rounded-lg border border-slate-600"
+                                            />
+                                    </div>
+                                )}
+                                </div>
+                </div>
+
+                                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddPortfolio(false)}
+                                        className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors"
+                                    >
+                                        취소
+                                    </button>
+                            <button
+                                type="submit"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors"
+                            >
+                                        시공사례 업로드
+                            </button>
+                                </div>
+            </form>
+                    </div>
+                </div>
+            </div>
+            )}
         </div>
     )
 }
