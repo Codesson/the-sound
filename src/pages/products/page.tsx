@@ -144,9 +144,9 @@ export default function Products() {
       setLoading(true);
       try {
         const SPREADSHEET_ID = process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
-        console.log('사용 중인 스프레드시트 ID:', SPREADSHEET_ID);
+        console.log('📊 사용 중인 스프레드시트 ID:', SPREADSHEET_ID);
         
-        // gid를 지정하지 않으면 기본 시트(설문지 응답)를 가져옴
+        // gid를 지정하지 않으면 "설문지 응답" 시트를 가져옴 (Google Form 응답 시트)
         const response = await fetch(
           `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`
         );
@@ -156,8 +156,6 @@ export default function Products() {
         }
         
         const csvText = await response.text();
-
-        console.log('csvText', csvText);
         
         // CSV 파싱 함수 (따옴표 안의 쉼표와 줄바꿈 처리)
         const parseCSV = (text: string): string[][] => {
@@ -209,10 +207,6 @@ export default function Products() {
         
         const rows = parseCSV(csvText);
         
-        console.log('=== 구글 스프레드시트 원본 데이터 ===');
-        console.log('총 행 수:', rows.length);
-        console.log('원본 CSV 텍스트 (처음 500자):', csvText.substring(0, 500));
-        
         if (rows.length <= 1) {
           console.warn('스프레드시트에 데이터가 없습니다. 기본 데이터를 사용합니다.');
           setProductsList(defaultProducts);
@@ -221,12 +215,8 @@ export default function Products() {
         
         // 헤더 확인 (타임스탬프, id, productName, category, description, specification, productImage, productImageExtra)
         const headers = rows[0];
-        console.log('=== 헤더 정보 ===');
-        console.log('헤더 배열:', headers);
-        console.log('총 컬럼 수:', headers.length);
-        headers.forEach((header, idx) => {
-          console.log(`  컬럼 ${idx}: "${header}"`);
-        });
+        console.log('📋 스프레드시트 헤더:', headers);
+        console.log('📊 총 컬럼 수:', headers.length);
         
         // 데이터 파싱 (헤더 제외)
         const products = rows.slice(1).map((values, index) => {
@@ -240,22 +230,16 @@ export default function Products() {
           const productImage = values[6] || '';
           const productImageExtra = values[7] || ''; // 8번째 컬럼
           
-          console.log(`\n=== 제품 ${index + 1} 상세 정보 ===`);
-          console.log('  전체 values 배열 길이:', values.length);
-          console.log('  timestamp:', timestamp);
-          console.log('  id:', id);
-          console.log('  productName:', productName);
-          console.log('  category:', category);
-          console.log('  description (처음 100자):', description.substring(0, 100) + (description.length > 100 ? '...' : ''));
-          console.log('  description 전체 길이:', description.length);
-          console.log('  specification (처음 100자):', specification.substring(0, 100) + (specification.length > 100 ? '...' : ''));
-          console.log('  specification 전체 길이:', specification.length);
-          console.log('  productImage 길이:', productImage.length);
-          console.log('  productImage 시작 부분:', productImage.substring(0, 50));
-          console.log('  productImageExtra 길이:', productImageExtra.length);
-          if (productImageExtra) {
-            console.log('  productImageExtra 시작 부분:', productImageExtra.substring(0, 50));
-          }
+          console.log(`\n🔍 제품 ${index + 1} (ID: ${id}):`, { 
+            timestamp,
+            productName, 
+            category, 
+            descLength: description.length, 
+            specLength: specification.length, 
+            imageLength: productImage.length,
+            imageExtraLength: productImageExtra.length,
+            imagePreview: productImage.substring(0, 50)
+          });
           
           // 이미지 처리: productImage와 productImageExtra를 합쳐서 완전한 base64 이미지 생성
           let imageUrl = speakerImage; // 기본 이미지
@@ -298,23 +282,9 @@ export default function Products() {
           };
         }).filter(product => product.model); // 모델명이 있는 것만 필터링
         
-        console.log('\n=== 최종 파싱된 제품 데이터 ===');
-        console.log('파싱된 제품 수:', products.length);
-        products.forEach((product, idx) => {
-          console.log(`\n제품 ${idx + 1}:`, {
-            model: product.model,
-            kind: product.kind,
-            descLength: product.desc.length,
-            hasSpec: !!product.spec,
-            specKeys: product.spec ? Object.keys(product.spec) : [],
-            imageUrl: product.url.substring(0, 50) + '...',
-            isBase64: product.url.startsWith('data:image')
-          });
-        });
-        
         if (products.length > 0) {
           setProductsList(products);
-          console.log(`\n✅ 스프레드시트에서 ${products.length}개 제품을 불러왔습니다.`);
+          console.log(`✅ 스프레드시트에서 ${products.length}개 제품을 불러왔습니다.`);
         } else {
           console.warn('스프레드시트에서 유효한 제품 데이터를 찾을 수 없습니다. 기본 데이터를 사용합니다.');
           setProductsList(defaultProducts);

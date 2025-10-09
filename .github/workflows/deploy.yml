@@ -35,7 +35,7 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: build
-          branch: gh-pages  # GitHub Pages 기본 브랜치
+          branch: gh-pages  # GitHub Pages 배포 브랜치
           clean: true
           commit-message: "🚀 Deploy: ${{ github.event.head_commit.message }}"
           git-config-name: github-actions[bot]
