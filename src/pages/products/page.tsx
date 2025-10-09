@@ -143,10 +143,12 @@ export default function Products() {
     const fetchProductsFromSpreadsheet = async () => {
       setLoading(true);
       try {
-        const SPREADSHEET_ID = "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
-        const GID = "0"; // 첫 번째 시트 (기본 gid)
+        const SPREADSHEET_ID = process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
+        console.log('📊 사용 중인 스프레드시트 ID:', SPREADSHEET_ID);
+        
+        // gid를 지정하지 않으면 "설문지 응답" 시트를 가져옴 (Google Form 응답 시트)
         const response = await fetch(
-          `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GID}`
+          `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`
         );
         
         if (!response.ok) {
@@ -211,29 +213,32 @@ export default function Products() {
           return;
         }
         
-        // 헤더 확인 (id, productName, category, description, specification, productImage, productImageExtra)
+        // 헤더 확인 (타임스탬프, id, productName, category, description, specification, productImage, productImageExtra)
         const headers = rows[0];
-        console.log('스프레드시트 헤더:', headers);
-        console.log('총 컬럼 수:', headers.length);
+        console.log('📋 스프레드시트 헤더:', headers);
+        console.log('📊 총 컬럼 수:', headers.length);
         
         // 데이터 파싱 (헤더 제외)
         const products = rows.slice(1).map((values, index) => {
-          // CSV 컬럼: id, productName, category, description, specification, productImage, productImageExtra
-          const id = values[0] || '';
-          const productName = values[1] || '';
-          const category = values[2] || '';
-          const description = values[3] || '';
-          const specification = values[4] || '';
-          const productImage = values[5] || '';
-          const productImageExtra = values[6] || ''; // 7번째 컬럼
+          // CSV 컬럼: 타임스탬프, id, productName, category, description, specification, productImage, productImageExtra
+          const timestamp = values[0] || '';
+          const id = values[1] || '';
+          const productName = values[2] || '';
+          const category = values[3] || '';
+          const description = values[4] || '';
+          const specification = values[5] || '';
+          const productImage = values[6] || '';
+          const productImageExtra = values[7] || ''; // 8번째 컬럼
           
-          console.log(`제품 ${index + 1}:`, { 
+          console.log(`\n🔍 제품 ${index + 1} (ID: ${id}):`, { 
+            timestamp,
             productName, 
             category, 
             descLength: description.length, 
             specLength: specification.length, 
             imageLength: productImage.length,
-            imageExtraLength: productImageExtra.length
+            imageExtraLength: productImageExtra.length,
+            imagePreview: productImage.substring(0, 50)
           });
           
           // 이미지 처리: productImage와 productImageExtra를 합쳐서 완전한 base64 이미지 생성
