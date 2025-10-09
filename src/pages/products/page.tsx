@@ -143,7 +143,9 @@ export default function Products() {
     const fetchProductsFromSpreadsheet = async () => {
       setLoading(true);
       try {
-        const SPREADSHEET_ID = "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
+        const SPREADSHEET_ID = process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || "1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo";
+        console.log('사용 중인 스프레드시트 ID:', SPREADSHEET_ID);
+        
         // gid를 지정하지 않으면 기본 시트(설문지 응답)를 가져옴
         const response = await fetch(
           `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`

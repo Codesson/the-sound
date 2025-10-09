@@ -17,9 +17,9 @@ export interface SpreadsheetConfig {
   range: string;
 }
 
-// 스프레드시트 설정
+// 스프레드시트 설정 (환경변수에서 가져오기)
 const SPREADSHEET_CONFIG: SpreadsheetConfig = {
-  spreadsheetId: '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo',
+  spreadsheetId: process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo',
   sheetName: '제품정보',
   range: 'A:Z'
 };

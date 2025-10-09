@@ -783,12 +783,12 @@ export default function Manager() {
                             <div className="mb-4">
                                 <p className="text-sm text-gray-400 mb-2">스프레드시트 링크:</p>
                                 <a 
-                                    href="https://docs.google.com/spreadsheets/d/1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo/edit?usp=drive_link"
+                                    href={`https://docs.google.com/spreadsheets/d/${process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo'}/edit`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-400 hover:text-blue-300 underline text-sm break-all"
                                 >
-                                    https://docs.google.com/spreadsheets/d/1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo/edit?usp=drive_link
+                                    {`https://docs.google.com/spreadsheets/d/${process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo'}/edit`}
                                 </a>
             </div>
 
