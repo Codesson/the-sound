@@ -8,8 +8,8 @@ export interface ManagerUser {
   isAuthorized: boolean;
 }
 
-// 허용된 매니저 이메일 목록 (하나의 계정만)
-const AUTHORIZED_MANAGER_EMAIL = 'codessone@gmail.com'; // 실제 매니저 이메일로 변경
+// 허용된 매니저 이메일 목록 (환경변수에서 가져오기)
+const AUTHORIZED_MANAGER_EMAIL = process.env.REACT_APP_MANAGER_EMAIL || 'codessone@gmail.com';
 
 /**
  * 구글 OAuth 토큰 검증
