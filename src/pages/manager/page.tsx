@@ -18,6 +18,10 @@ import { optimizeForGoogleForms, getBase64Size } from "../../utils/imageCompress
 export default function Manager() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [currentView, setCurrentView] = useState<'menu' | 'portfolio' | 'products'>('menu');
+    
+    // 시공사례 관리 상태
+    const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
+    const [portfolioLoading, setPortfolioLoading] = useState(false);
     const [managerUser, setManagerUser] = useState<ManagerUser | null>(null);
     const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
     const [uploadForm, setUploadForm] = useState({
@@ -287,6 +291,61 @@ export default function Manager() {
         setShowAddProduct(false);
     };
 
+    // 시공사례 목록 가져오기
+    const fetchPortfolioItems = async () => {
+        setPortfolioLoading(true);
+        try {
+            const PORTFOLIO_SPREADSHEET_ID = "1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs";
+            console.log('📊 시공사례 스프레드시트 ID:', PORTFOLIO_SPREADSHEET_ID);
+            
+            const response = await fetch(
+                `https://docs.google.com/spreadsheets/d/${PORTFOLIO_SPREADSHEET_ID}/export?format=csv`
+            );
+            
+            if (!response.ok) {
+                throw new Error('시공사례 데이터를 가져오는데 실패했습니다.');
+            }
+            
+            const csvText = await response.text();
+            console.log('📄 시공사례 CSV 데이터 (처음 200자):', csvText.substring(0, 200));
+            
+            // CSV 파싱 (제품과 동일한 방식)
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            
+            if (lines.length <= 1) {
+                console.warn('시공사례 데이터가 없습니다.');
+                setPortfolioItems([]);
+                return;
+            }
+            
+            const headers = lines[0].split(',').map(h => h.trim());
+            console.log('📋 시공사례 헤더:', headers);
+            
+            const items = lines.slice(1).map((line, index) => {
+                const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+                
+                return {
+                    id: index + 1,
+                    title: values[0] || '',
+                    description: values[1] || '',
+                    location: values[2] || '',
+                    date: values[3] || '',
+                    equipment: values[4] || '',
+                    mainImage: values[5] || '',
+                    detailImages: values[6] || ''
+                };
+            }).filter(item => item.title);
+            
+            setPortfolioItems(items);
+            console.log(`✅ 시공사례 ${items.length}개를 불러왔습니다.`);
+        } catch (error) {
+            console.error('시공사례 데이터 가져오기 오류:', error);
+            setPortfolioItems([]);
+        } finally {
+            setPortfolioLoading(false);
+        }
+    };
+    
     // 제품 목록 가져오기
     const fetchProducts = async () => {
         setLoading(true);
@@ -452,6 +511,8 @@ export default function Manager() {
     useEffect(() => {
         if (currentView === 'products') {
             fetchProducts();
+        } else if (currentView === 'portfolio') {
+            fetchPortfolioItems();
         }
     }, [currentView]);
 
@@ -512,8 +573,8 @@ export default function Manager() {
                                 onClick={() => setCurrentView('portfolio')}
                                 className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
                                         >
-                                <h3 className="text-2xl font-semibold text-white mb-2">포트폴리오 관리</h3>
-                                <p className="text-gray-300">시공 사례를 추가하고 관리할 수 있습니다</p>
+                                <h3 className="text-2xl font-semibold text-white mb-2">시공사례 관리</h3>
+                                <p className="text-gray-300">시공 사례를 확인하고 관리할 수 있습니다</p>
                                         </button>
                                     
                                     <button
@@ -533,19 +594,81 @@ export default function Manager() {
                                         로그아웃
                                         </button>
                                         </div>
-                            </div>
+                    </div>
                 ) : currentView === 'portfolio' ? (
-                            // 시공사례 업로드 폼
-                            <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8">
-                                <div className="mb-8 flex justify-between items-center">
-                            <h2 className="text-3xl font-bold text-white">고객 사례 업로드</h2>
-                                    <button
-                                        onClick={() => setCurrentView('menu')}
+                    // 시공사례 관리 화면
+                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
+                        <div className="mb-8 flex justify-between items-center">
+                            <h2 className="text-3xl font-bold text-white">시공사례 관리</h2>
+                            <button
+                                onClick={() => setCurrentView('menu')}
                                 className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-                                    >
+                            >
                                 메뉴로 돌아가기
-                                    </button>
+                            </button>
+                        </div>
+                        
+                        {/* 시공사례 목록 */}
+                        <div className="mb-6">
+                            <h3 className="text-xl font-semibold text-white mb-4">등록된 시공사례 목록</h3>
+                            
+                            {portfolioLoading ? (
+                                <div className="text-center py-8">
+                                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                    <p className="text-gray-300 mt-2">로딩 중...</p>
                                 </div>
+                            ) : portfolioItems.length === 0 ? (
+                                <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50">
+                                    <p className="text-gray-400 mb-4">등록된 시공사례가 없습니다</p>
+                    </div>
+                ) : (
+                                <div className="space-y-3">
+                                    {portfolioItems.map((item) => (
+                                        <div key={item.id} className="bg-slate-700/50 rounded-lg border border-slate-600/50 hover:bg-slate-700/70 transition-colors duration-200">
+                                            <div className="flex items-start p-4">
+                                                {/* 시공사례 정보 */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <h4 className="text-lg font-semibold text-white mb-1">{item.title}</h4>
+                                                            <div className="flex items-center space-x-4 text-sm text-gray-400 mb-2">
+                                                                <span className="text-blue-300">📍 {item.location}</span>
+                                                                <span>📅 {item.date}</span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-300 mb-2 line-clamp-2">
+                                                                {item.description}
+                                                            </p>
+                                                            {item.equipment && (
+                                                                <p className="text-xs text-gray-400">
+                                                                    <span className="text-gray-500">장비:</span> {item.equipment}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex space-x-2 ml-4">
+                                                            <button className="text-gray-400 hover:text-yellow-400 transition-colors p-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button className="text-gray-400 hover:text-red-400 transition-colors p-1">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* 기존 업로드 폼은 아래에 유지 */}
+                        <div className="mt-8 pt-8 border-t border-slate-700">
+                            <h3 className="text-xl font-semibold text-white mb-4">새 시공사례 추가</h3>
                         
                         <form onSubmit={handleUploadSubmit} className="space-y-6">
                             <div>
@@ -644,19 +767,19 @@ export default function Manager() {
                                                 alt="메인 이미지 미리보기"
                                                 className="w-32 h-32 object-cover rounded-lg border border-slate-600/50"
                                             />
-                                    <button
+                                            <button
                                                 type="button"
                                                 onClick={removeMainImage}
                                                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
                                             >
                                                 ×
                                             </button>
-                                            </div>
-                                        <p className="text-xs text-gray-400 mt-1 truncate">{uploadForm.mainImage.name}</p>
                                         </div>
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{uploadForm.mainImage.name}</p>
+                                    </div>
                                 )}
-                                </div>
-                                
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-200 mb-2">
                                     상세 이미지
@@ -685,29 +808,30 @@ export default function Manager() {
                                                         alt={`상세 이미지 미리보기 ${index + 1}`}
                                                         className="w-full h-24 object-cover rounded-lg border border-slate-600/50"
                                                     />
-                                    <button
+                                                    <button
                                                         type="button"
                                                         onClick={() => removeDetailImage(index)}
                                                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
-                                    >
+                                                    >
                                                         ×
-                                    </button>
+                                                    </button>
                                                     <p className="text-xs text-gray-400 mt-1 truncate">{file.name}</p>
                                                 </div>
                                             ))}
-                                </div>
-                            </div>
-                        )}
+                                        </div>
+                                    </div>
+                                )}
                 </div>
 
                             <button
                                 type="submit"
                                 className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-300 font-medium shadow-lg"
                             >
-                                고객 사례 업로드
+                                시공사례 업로드
                             </button>
                         </form>
-                            </div>
+                        </div>
+                    </div>
                 ) : currentView === 'products' ? (
                     // 제품 관리 화면
                     <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
@@ -1111,8 +1235,8 @@ export default function Manager() {
                                             </button>
                                         </div>
                                             )}
-                                    </div>
-                                )}
+                    </div>
+                )}
                             </div>
                                 </div>
 
