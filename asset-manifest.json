@@ -1,0 +1,23 @@
+{
+  "files": {
+    "main.css": "/the-sound/static/css/main.5aac7822.css",
+    "main.js": "/the-sound/static/js/main.9fa6b5c1.js",
+    "static/js/453.73cd828a.chunk.js": "/the-sound/static/js/453.73cd828a.chunk.js",
+    "static/media/audience.jpg": "/the-sound/static/media/audience.44bb39c5b2bd11c8259b.jpg",
+    "static/media/example1.jpg": "/the-sound/static/media/example1.d80aca649f9da4fb6ca1.jpg",
+    "static/media/mic-double.jpg": "/the-sound/static/media/mic-double.104e11c6f79216e2cefb.jpg",
+    "static/media/3d-video.png": "/the-sound/static/media/3d-video.4953afa22e2d421f8e1a.png",
+    "static/media/spotlights.png": "/the-sound/static/media/spotlights.069008e5044b5adda16d.png",
+    "static/media/led.png": "/the-sound/static/media/led.9e6b28277dd8075b872d.png",
+    "static/media/insurance.png": "/the-sound/static/media/insurance.56a82ca03661aae40639.png",
+    "static/media/wave-sound.png": "/the-sound/static/media/wave-sound.9d829835bf9375a8dbdd.png",
+    "index.html": "/the-sound/index.html",
+    "main.5aac7822.css.map": "/the-sound/static/css/main.5aac7822.css.map",
+    "main.9fa6b5c1.js.map": "/the-sound/static/js/main.9fa6b5c1.js.map",
+    "453.73cd828a.chunk.js.map": "/the-sound/static/js/453.73cd828a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.5aac7822.css",
+    "static/js/main.9fa6b5c1.js"
+  ]
+}
