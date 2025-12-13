@@ -78,6 +78,13 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
         if (response.access_token) {
           const verification = await verifyGoogleToken(response.access_token);
           if (verification.isValid && verification.user) {
+            // 환경변수에 매니저 이메일이 설정되지 않은 경우 체크
+            if (AUTHORIZED_MANAGER_EMAILS.length === 0) {
+              console.error('❌ REACT_APP_MANAGER_EMAILS 환경변수가 설정되지 않았습니다.');
+              onError('매니저 이메일이 환경변수에 설정되지 않았습니다. REACT_APP_MANAGER_EMAILS를 확인해주세요.');
+              return;
+            }
+            
             if (verification.user.isAuthorized) {
               onSuccess(response.access_token, verification.user);
             } else {
