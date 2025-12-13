@@ -34,24 +34,6 @@ jobs:
           REACT_APP_PRODUCTS_SPREADSHEET_ID: ${{ secrets.REACT_APP_PRODUCTS_SPREADSHEET_ID }}
           REACT_APP_SUPPORT_SPREADSHEET_ID: ${{ secrets.REACT_APP_SUPPORT_SPREADSHEET_ID }}
           REACT_APP_PORTFOLIO_SHEET_GID: ${{ secrets.REACT_APP_PORTFOLIO_SHEET_GID }}
-      - name: Verify Build Environment Variables
-        run: |
-          echo "🔍 빌드 환경변수 확인:"
-          echo "REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID:0:20}..." 
-          echo "REACT_APP_MANAGER_EMAILS: ${REACT_APP_MANAGER_EMAILS:0:30}..."
-          if [ -z "$REACT_APP_GOOGLE_CLIENT_ID" ]; then
-            echo "❌ REACT_APP_GOOGLE_CLIENT_ID가 설정되지 않았습니다!"
-            exit 1
-          fi
-          if [ -z "$REACT_APP_MANAGER_EMAILS" ]; then
-            echo "❌ REACT_APP_MANAGER_EMAILS가 설정되지 않았습니다!"
-            exit 1
-          fi
-          echo "✅ 필수 환경변수가 모두 설정되었습니다."
-        env:
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
-          REACT_APP_MANAGER_EMAILS: ${{ secrets.REACT_APP_MANAGER_EMAILS }}
-
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
