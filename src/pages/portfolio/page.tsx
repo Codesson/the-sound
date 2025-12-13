@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RowsPhotoAlbum } from "react-photo-album";
-import "react-photo-album/rows.css";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Fullscreen from "yet-another-react-lightbox/plugins/fullscreen";
@@ -26,7 +24,8 @@ interface CaseData {
   location: string;
   date: string;
   equipment: string[];
-  mainImage: string;
+  mainImage: string | null; // 이미지가 없을 수 있음
+  hasMainImage?: boolean; // 이미지 존재 여부 플래그 (선택적)
   detailImages: string[];
   alt: string;
   inquiry?: {
@@ -47,24 +46,50 @@ export default function Portfolio() {
     const fetchData = async () => {
       try {
         // Google Sheets를 CSV로 내보내는 URL 사용
-        // gid를 제거하여 기본 시트(설문지 응답 시트1) 사용
-        const response = await fetch(
-          'https://docs.google.com/spreadsheets/d/1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs/export?format=csv'
-        );
+        // gid=970749800은 customerCase 시트를 가리킴
+        const spreadsheetId = process.env.REACT_APP_PORTFOLIO_SPREADSHEET_ID || '1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs';
+        const sheetGid = process.env.REACT_APP_PORTFOLIO_SHEET_GID || '970749800';
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${sheetGid}`;
+        
+        console.log('📥 시공사례 CSV 데이터 가져오기 시작:', csvUrl);
+        
+        const response = await fetch(csvUrl);
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text().catch(() => '');
+          console.error('❌ CSV 가져오기 실패:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorText: errorText.substring(0, 200)
+          });
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const csvText = await response.text();
-        console.log('📄 포트폴리오 CSV 데이터 (처음 300자):', csvText.substring(0, 300));
+        console.log('📄 포트폴리오 CSV 데이터 (처음 500자):', csvText.substring(0, 500));
+        
+        if (!csvText || csvText.trim().length === 0) {
+          throw new Error('CSV 데이터가 비어있습니다.');
+        }
         
         // CSV를 파싱하여 데이터 변환
         const lines = csvText.split('\n').filter(line => line.trim() !== '');
+        
+        if (lines.length === 0) {
+          throw new Error('CSV 파일에 데이터가 없습니다.');
+        }
+        
         const headers = lines[0].split(',').map(header => header.trim());
 
         console.log('📋 포트폴리오 헤더:', headers);
         console.log('📊 포트폴리오 데이터 행 수:', lines.length - 1);
+        
+        if (lines.length <= 1) {
+          console.warn('⚠️ 헤더만 있고 데이터 행이 없습니다.');
+          setCaseList([]);
+          setIsLoading(false);
+          return;
+        }
         
         // CSV 라인을 안전하게 파싱하는 함수
         const parseCSVLine = (line: string) => {
@@ -172,92 +197,147 @@ export default function Portfolio() {
           }
         };
         
-        const transformedData = lines.slice(1).map((line, index) => {
-          const values = parseCSVLine(line);
-          
-          // 스프레드시트 컬럼 구조:
-          // 0: 타임스탬프, 1: id, 2: title, 3: description, 4: location,
-          // 5: installmentDate, 6: equipment, 7: mainImage, 8: mainImageExtra,
-          // 9: detailImage1, 10: detailImageExtra1, 11: detailImage2,
-          // 12: detailImageExtra2, 13: detailImage3, 14: detailImageExtra3
-          
-          // 이미지 조합 (base64 분할 이미지 합치기)
-          const mainImage = (values[7] || '') + (values[8] || '');
-          const detailImage1 = (values[9] || '') + (values[10] || '');
-          const detailImage2 = (values[11] || '') + (values[12] || '');
-          const detailImage3 = (values[13] || '') + (values[14] || '');
-          
-          // 상세 이미지 배열 생성 (빈 이미지 제외)
-          const detailImages = [detailImage1, detailImage2, detailImage3]
-            .filter(img => img && img.trim() !== '');
-          
-          // 날짜 파싱 (YYYY. MM. DD 형식)
-          let formattedDate = values[5] || '';
-          if (formattedDate) {
-            try {
-              // "2025. 10. 9" 형식을 파싱
-              const dateParts = formattedDate.split('.').map(p => p.trim());
-              if (dateParts.length >= 3) {
-                const year = dateParts[0];
-                const month = dateParts[1].padStart(2, '0');
-                const day = dateParts[2].padStart(2, '0');
-                formattedDate = `${year}년 ${month}월 ${day}일`;
-              }
-            } catch (e) {
-              console.warn('날짜 파싱 오류:', e);
-            }
+        // Base64 이미지를 디코딩하는 함수
+        const decodeBase64Image = (base64String: string): string | null => {
+          if (!base64String || base64String.trim() === '') return null;
+          // 이미 data:image 접두사가 있으면 그대로 반환
+          if (base64String.startsWith('data:image')) {
+            return base64String;
           }
-          
-          // equipment를 배열로 변환 (쉼표로 구분되어 있다고 가정)
-          const equipmentArray = values[6] 
-            ? values[6].split(',').map(item => item.trim()).filter(item => item)
-            : [];
-          
-          const item = {
-            id: parseInt(values[1]) || index + 1,
-            title: values[2] || '',
-            description: values[3] || '',
-            location: values[4] || '',
-            date: formattedDate,
-            equipment: equipmentArray,
-            mainImage: mainImage || example1,
-            detailImages: detailImages.length > 0 
-              ? detailImages
-              : [example1, example2, example3],
-            alt: values[2] || '시공사례 이미지'
-          };
-          
-          console.log(`포트폴리오 ${index + 1}:`, {
-            title: item.title,
-            description: item.description.substring(0, 50) + '...',
-            location: item.location,
-            date: item.date,
-            equipment: item.equipment,
-            mainImageLength: mainImage.length,
-            detailImagesCount: detailImages.length
-          });
-          
-          return item;
-        });
+          // Base64 문자열인 경우 접두사 추가
+          return `data:image/jpeg;base64,${base64String}`;
+        };
+
+        const transformedData = lines.slice(1)
+          .filter(line => {
+            // 빈 행이나 헤더 행 제외
+            const trimmed = line.trim();
+            if (!trimmed) return false;
+            const values = parseCSVLine(trimmed);
+            // 최소한 제목이나 설명이 있어야 유효한 데이터로 간주
+            return values.length > 2 && (values[2] || values[3]);
+          })
+          .map((line, index) => {
+            const values = parseCSVLine(line);
+            
+            // 스프레드시트 컬럼 구조:
+            // 0: 타임스탬프, 1: id, 2: title, 3: description, 4: location,
+            // 5: installmentDate, 6: equipment, 7: mainImage, 8: mainImageExtra,
+            // 9: detailImage1, 10: detailImageExtra1, 11: detailImage2,
+            // 12: detailImageExtra2, 13: detailImage3, 14: detailImageExtra3
+            
+            // 이미지 조합 (base64 분할 이미지 합치기)
+            const mainImageBase64 = ((values[7] || '').trim() + (values[8] || '').trim());
+            const detailImage1Base64 = ((values[9] || '').trim() + (values[10] || '').trim());
+            const detailImage2Base64 = ((values[11] || '').trim() + (values[12] || '').trim());
+            const detailImage3Base64 = ((values[13] || '').trim() + (values[14] || '').trim());
+            
+            // Base64 이미지를 디코딩
+            const mainImage = mainImageBase64 ? decodeBase64Image(mainImageBase64) : null;
+            const detailImage1 = detailImage1Base64 ? decodeBase64Image(detailImage1Base64) : null;
+            const detailImage2 = detailImage2Base64 ? decodeBase64Image(detailImage2Base64) : null;
+            const detailImage3 = detailImage3Base64 ? decodeBase64Image(detailImage3Base64) : null;
+            
+            // 상세 이미지 배열 생성 (null 제외)
+            const detailImages = [detailImage1, detailImage2, detailImage3]
+              .filter((img): img is string => img !== null);
+            
+            // 날짜 파싱
+            let formattedDate = values[5] || '';
+            if (formattedDate) {
+              try {
+                // "2025. 10. 9" 또는 "2025-01-15" 형식 파싱
+                if (formattedDate.includes('.')) {
+                  const dateParts = formattedDate.split('.').map(p => p.trim());
+                  if (dateParts.length >= 3) {
+                    const year = dateParts[0];
+                    const month = dateParts[1].padStart(2, '0');
+                    const day = dateParts[2].padStart(2, '0');
+                    formattedDate = `${year}년 ${month}월 ${day}일`;
+                  }
+                } else if (formattedDate.includes('-')) {
+                  // ISO 형식 (2025-01-15)
+                  const dateObj = new Date(formattedDate);
+                  if (!isNaN(dateObj.getTime())) {
+                    const year = dateObj.getFullYear();
+                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    formattedDate = `${year}년 ${month}월 ${day}일`;
+                  }
+                }
+              } catch (e) {
+                console.warn('날짜 파싱 오류:', e, formattedDate);
+              }
+            }
+            
+            // equipment를 배열로 변환 (쉼표로 구분되어 있다고 가정)
+            const equipmentArray = values[6] 
+              ? values[6].split(',').map(item => item.trim()).filter(item => item)
+              : [];
+            
+            const item = {
+              id: parseInt(values[1]) || index + 1,
+              title: values[2] || '',
+              description: values[3] || '',
+              location: values[4] || '',
+              date: formattedDate,
+              equipment: equipmentArray,
+              mainImage: mainImage || null, // 이미지가 없으면 null
+              hasMainImage: !!mainImage, // 이미지 존재 여부 플래그
+              detailImages: detailImages.length > 0 
+                ? detailImages
+                : [],
+              alt: values[2] || '시공사례 이미지'
+            };
+            
+            console.log(`포트폴리오 ${index + 1}:`, {
+              title: item.title,
+              description: item.description.substring(0, 50) + '...',
+              location: item.location,
+              date: item.date,
+              equipment: item.equipment,
+              mainImageLength: mainImageBase64.length,
+              detailImagesCount: detailImages.length,
+              hasMainImage: !!mainImage
+            });
+            
+            return item;
+          })
+          .filter(item => item.title || item.description); // 제목이나 설명이 있는 항목만 표시
 
         console.log(`✅ 포트폴리오 ${transformedData.length}개를 불러왔습니다.`);
+        
+        if (transformedData.length === 0) {
+          console.warn('⚠️ 불러온 데이터가 없습니다. CSV를 확인해주세요.');
+        }
+        
         setCaseList(transformedData);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        // 에러 발생 시 기본 데이터 사용
-        setCaseList([
-          {
-            id: 1,
-            title: "샘플 프로젝트",
-            description: "샘플 프로젝트 설명입니다.",
-            location: "서울시",
-            date: "2024년 01월 01일",
-            equipment: ["스피커", "앰프", "마이크"],
-            mainImage: example1,
-            detailImages: [example1, example2, example3],
-            alt: "샘플 프로젝트 이미지"
-          }
-        ]);
+        console.error('❌ 시공사례 데이터 가져오기 오류:', error);
+        
+        // 에러 상세 정보 추출
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorDetails = {
+          message: errorMessage,
+          name: error instanceof Error ? error.name : 'Unknown',
+          stack: error instanceof Error ? error.stack : undefined
+        };
+        
+        console.error('에러 상세:', errorDetails);
+        
+        // 에러 발생 시 빈 배열로 설정 (샘플 데이터 표시 안 함)
+        setCaseList([]);
+        
+        // 사용자에게 더 구체적인 에러 메시지 표시
+        const userMessage = errorMessage.includes('HTTP 403') 
+          ? '시공사례 데이터를 불러올 수 없습니다. 스프레드시트 공유 설정을 확인해주세요.'
+          : errorMessage.includes('HTTP 404')
+          ? '시공사례 데이터를 찾을 수 없습니다. 스프레드시트 URL을 확인해주세요.'
+          : errorMessage.includes('CORS') || errorMessage.includes('Failed to fetch')
+          ? '시공사례 데이터를 불러올 수 없습니다. 네트워크 연결을 확인해주세요.'
+          : `시공사례 데이터를 불러오는데 실패했습니다.\n\n오류: ${errorMessage}\n\n잠시 후 다시 시도해주세요.`;
+        
+        alert(userMessage);
       } finally {
         setIsLoading(false);
       }
@@ -324,15 +404,6 @@ export default function Portfolio() {
     img.alt = '이미지를 불러올 수 없습니다';
   };
 
-  // 사진 앨범용 이미지 배열
-  const photos = caseList.map(item => ({
-    src: item.mainImage,
-    alt: item.alt,
-    width: 1200,
-    height: 860,
-    caseData: item
-  }));
-
   return (
     <div className="flex flex-col items-center pb-20">
       <h1 className="text-center text-4xl mt-20">시공사례</h1>
@@ -341,14 +412,50 @@ export default function Portfolio() {
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
+      ) : caseList.length === 0 ? (
+        <div className="p-4 w-[100%] max-w-[1200px] text-center py-12">
+          <p className="text-gray-400 text-lg">등록된 시공사례가 없습니다.</p>
+        </div>
       ) : (
-        <div className="p-4 w-[100%] max-w-[800px]">
-          <RowsPhotoAlbum
-            photos={photos}
-            onClick={({ photo }) => handleImageClick(photo.caseData)}
-            spacing={20}
-            targetRowHeight={300}
-          />
+        <div className="p-4 w-[100%] max-w-[1200px]">
+          {/* 격자형 이미지 갤러리 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {caseList.map((item) => (
+              <div
+                key={item.id}
+                className="relative group cursor-pointer overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                onClick={() => handleImageClick(item)}
+              >
+                {/* 이미지 */}
+                <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-200">
+                  {item.mainImage ? (
+                    <img
+                      src={item.mainImage}
+                      alt={item.alt}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      onError={handleImageError}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400">
+                      <svg className="w-12 h-12 text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-gray-500 text-xs font-medium">이미지 없음</p>
+                    </div>
+                  )}
+                  {/* 오버레이 그라데이션 (항상 표시) */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                  {/* 제목 오버레이 (항상 표시) */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                    <h3 className="text-lg font-semibold drop-shadow-lg">{item.title}</h3>
+                    {item.location && (
+                      <p className="text-sm text-white/90 mt-1">{item.location}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
           
           {/* 사례 상세 모달 */}
           {showDetailModal && selectedCase && (
@@ -384,11 +491,22 @@ export default function Portfolio() {
                     
                     {/* 메인 이미지 */}
                     <div className="my-12">
-                      <img 
-                        src={selectedCase.mainImage} 
-                        alt={selectedCase.alt} 
-                        className="w-full h-auto rounded-lg shadow-lg"
-                      />
+                      {selectedCase.mainImage ? (
+                        <img 
+                          src={selectedCase.mainImage} 
+                          alt={selectedCase.alt} 
+                          className="w-full h-auto rounded-lg shadow-lg"
+                          onError={handleImageError}
+                        />
+                      ) : (
+                        <div className="w-full h-64 flex flex-col items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-dashed border-gray-400">
+                          <svg className="w-20 h-20 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-500 text-lg font-medium">이미지 없음</p>
+                          <p className="text-gray-400 text-sm mt-2">대표 이미지가 등록되지 않았습니다</p>
+                        </div>
+                      )}
                     </div>
                     
                     {/* 프로젝트 설명 */}
@@ -396,15 +514,25 @@ export default function Portfolio() {
                     <p className="mb-12 text-lg leading-relaxed text-left">{selectedCase.description}</p>
                     
                     {/* 첫 번째 상세 이미지 */}
-                    {selectedCase.detailImages.length > 0 && (
+                    {selectedCase.detailImages.length > 0 ? (
                       <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[0]} 
                           alt={`${selectedCase.title} 상세 이미지 1`} 
                           className="w-full h-auto rounded-lg shadow-md cursor-pointer"
                           onClick={() => setLightboxIndex(0)}
+                          onError={handleImageError}
                         />
                         <p className="text-sm text-gray-500 mt-2 italic text-left">이미지를 클릭하면 확대해서 볼 수 있습니다</p>
+                      </div>
+                    ) : (
+                      <div className="my-12">
+                        <div className="w-full h-48 flex flex-col items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-dashed border-gray-400">
+                          <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-gray-500 text-sm font-medium">상세 이미지 없음</p>
+                        </div>
                       </div>
                     )}
                     
@@ -435,16 +563,17 @@ export default function Portfolio() {
                     </p>
                     
                     {/* 세 번째 상세 이미지 */}
-                    {selectedCase.detailImages.length > 2 && (
+                    {selectedCase.detailImages.length > 2 ? (
                       <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[2]} 
                           alt={`${selectedCase.title} 상세 이미지 3`} 
                           className="w-full h-auto rounded-lg shadow-md cursor-pointer"
                           onClick={() => setLightboxIndex(2)}
+                          onError={handleImageError}
                         />
                       </div>
-                    )}
+                    ) : null}
                     
                     {/* 추가 이미지 갤러리 */}
                     {selectedCase.detailImages.length > 3 && (

@@ -8,8 +8,17 @@ export interface ManagerUser {
   isAuthorized: boolean;
 }
 
-// 허용된 매니저 이메일 목록 (환경변수에서 가져오기)
-const AUTHORIZED_MANAGER_EMAIL = process.env.REACT_APP_MANAGER_EMAIL || 'codessone@gmail.com';
+// 환경변수에서 매니저 이메일 목록 가져오기 (쉼표로 구분)
+const getAuthorizedManagerEmails = (): string[] => {
+  const envEmails = process.env.REACT_APP_MANAGER_EMAILS;
+  if (!envEmails) {
+    console.warn('⚠️ REACT_APP_MANAGER_EMAILS 환경변수가 설정되지 않았습니다.');
+    return [];
+  }
+  return envEmails.split(',').map(email => email.trim()).filter(email => email.length > 0);
+};
+
+const AUTHORIZED_MANAGER_EMAILS = getAuthorizedManagerEmails();
 
 /**
  * 구글 OAuth 토큰 검증
@@ -28,7 +37,7 @@ export const verifyGoogleToken = async (accessToken: string): Promise<{
         id: data.user_id,
         email: data.email,
         name: data.email?.split('@')[0] || 'Unknown User',
-        isAuthorized: data.email === AUTHORIZED_MANAGER_EMAIL
+        isAuthorized: AUTHORIZED_MANAGER_EMAILS.length > 0 && AUTHORIZED_MANAGER_EMAILS.includes(data.email)
       };
       
       return {
@@ -72,7 +81,7 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
             if (verification.user.isAuthorized) {
               onSuccess(response.access_token, verification.user);
             } else {
-              onError(`접근 권한이 없습니다. 허용된 매니저 계정이 아닙니다.\n\n허용된 계정: ${AUTHORIZED_MANAGER_EMAIL}\n로그인 시도 계정: ${verification.user.email}`);
+              onError(`접근 권한이 없습니다. 허용된 매니저 계정이 아닙니다.\n\n허용된 계정: ${AUTHORIZED_MANAGER_EMAILS.join(', ')}\n로그인 시도 계정: ${verification.user.email}`);
             }
           } else {
             onError(verification.error || '토큰 검증에 실패했습니다.');

@@ -10,19 +10,37 @@ import {
     initializeSpreadsheet, 
     convertProductsToSpreadsheetFormat,
     checkSpreadsheetAccess,
-    ProductData 
+    ProductData,
+    writePortfolioToSheet,
+    writeProductToSheet,
+    readPortfolioData,
+    updatePortfolioRow,
+    readProductData,
+    updateProductRow,
+    writeSupportToSheet,
+    readSupportData,
+    updateSupportRow,
+    SupportFormData
 } from "../../utils/googleSheets";
-import { submitProductToGoogleForm, NewProductForm } from "../../utils/googleForm";
-import { optimizeForGoogleForms, getBase64Size } from "../../utils/imageCompression";
+import { uploadToGoogleDrive } from "../../utils/googleDriveUpload";
+import { optimizeForGoogleForms, getBase64Size, compressImageToBase64, recompressBase64 } from "../../utils/imageCompression";
 
 export default function Manager() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [currentView, setCurrentView] = useState<'menu' | 'portfolio' | 'products'>('menu');
+    const [currentView, setCurrentView] = useState<'menu' | 'portfolio' | 'products' | 'support'>('menu');
     
     // 시공사례 관리 상태
     const [portfolioItems, setPortfolioItems] = useState<any[]>([]);
     const [portfolioLoading, setPortfolioLoading] = useState(false);
     const [showAddPortfolio, setShowAddPortfolio] = useState(false);
+    const [currentPortfolioPage, setCurrentPortfolioPage] = useState(1);
+    const [portfolioItemsPerPage] = useState(10);
+    const [selectedPortfolio, setSelectedPortfolio] = useState<any | null>(null);
+    const [showPortfolioDetail, setShowPortfolioDetail] = useState(false);
+    const [isEditingPortfolio, setIsEditingPortfolio] = useState(false);
+    const [editingPortfolioData, setEditingPortfolioData] = useState<any>(null);
+    const [savingPortfolio, setSavingPortfolio] = useState(false);
+    const [editingImageUploading, setEditingImageUploading] = useState(false);
     const [managerUser, setManagerUser] = useState<ManagerUser | null>(null);
     const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
     const [uploadForm, setUploadForm] = useState({
@@ -45,6 +63,17 @@ export default function Manager() {
     
     // 제품 관리 상태
     const [products, setProducts] = useState<any[]>([]);
+    const [productLoading, setProductLoading] = useState(false);
+    const [currentProductPage, setCurrentProductPage] = useState(1);
+    const [productItemsPerPage] = useState(10);
+    const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+    const [showProductDetail, setShowProductDetail] = useState(false);
+    const [isEditingProduct, setIsEditingProduct] = useState(false);
+    const [editingProductData, setEditingProductData] = useState<any>(null);
+    const [savingProduct, setSavingProduct] = useState(false);
+    const [editingProductImageUploading, setEditingProductImageUploading] = useState(false);
+    const [hasOriginalProductImage, setHasOriginalProductImage] = useState(false);
+    const [productImageError, setProductImageError] = useState(false);
     const [productForm, setProductForm] = useState({
         productName: '',
         category: '',
@@ -58,6 +87,26 @@ export default function Manager() {
     const [loading, setLoading] = useState(false);
     const [imageUploading, setImageUploading] = useState(false);
     const [portfolioImageUploading, setPortfolioImageUploading] = useState(false);
+    
+    // 고객 지원 자료 관리 상태
+    const [supportItems, setSupportItems] = useState<any[]>([]);
+    const [supportLoading, setSupportLoading] = useState(false);
+    const [showAddSupport, setShowAddSupport] = useState(false);
+    const [currentSupportPage, setCurrentSupportPage] = useState(1);
+    const [supportItemsPerPage] = useState(10);
+    const [selectedSupport, setSelectedSupport] = useState<any | null>(null);
+    const [showSupportDetail, setShowSupportDetail] = useState(false);
+    const [isEditingSupport, setIsEditingSupport] = useState(false);
+    const [editingSupportData, setEditingSupportData] = useState<any>(null);
+    const [savingSupport, setSavingSupport] = useState(false);
+    const [supportFileUploading, setSupportFileUploading] = useState(false);
+    const [supportForm, setSupportForm] = useState({
+        title: '',
+        desc: '',
+        category: '기타',
+        file: null as File | null,
+        fileUrl: '' as string
+    });
     
     // 스프레드시트 관리 상태
     const [spreadsheetData, setSpreadsheetData] = useState<ProductData[]>([]);
@@ -86,7 +135,22 @@ export default function Manager() {
         setCurrentView('menu');
         setShowAddProduct(false);
         setShowAddPortfolio(false);
+        setIsEditingPortfolio(false);
+        setEditingPortfolioData(null);
+        setSelectedPortfolio(null);
+        setShowPortfolioDetail(false);
         managerStorage.clear();
+    };
+
+    // 401 오류 체크 및 로그아웃 처리
+    const checkAndHandle401Error = (error: any) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('401') || errorMessage.includes('인증이 필요합니다') || errorMessage.includes('토큰이 만료')) {
+            handleLogout();
+            alert('로그인이 만료되었습니다. 다시 로그인해주세요.');
+            return true;
+        }
+        return false;
     };
 
     // 스프레드시트 데이터 로드
@@ -111,6 +175,12 @@ export default function Manager() {
             setSpreadsheetData(data);
         } catch (error) {
             console.error('스프레드시트 데이터 로드 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
             setSpreadsheetError(error instanceof Error ? error.message : '데이터 로드에 실패했습니다.');
         } finally {
             setSpreadsheetLoading(false);
@@ -133,6 +203,12 @@ export default function Manager() {
             alert('스프레드시트가 초기화되었습니다.');
         } catch (error) {
             console.error('스프레드시트 초기화 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
             setSpreadsheetError(error instanceof Error ? error.message : '초기화에 실패했습니다.');
         } finally {
             setSpreadsheetLoading(false);
@@ -158,6 +234,12 @@ export default function Manager() {
             await loadSpreadsheetData(); // 데이터 새로고침
         } catch (error) {
             console.error('스프레드시트 저장 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
             setSpreadsheetError(error instanceof Error ? error.message : '저장에 실패했습니다.');
         } finally {
             setSpreadsheetLoading(false);
@@ -175,10 +257,11 @@ export default function Manager() {
     const handleMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
         
-        if (file) {
-            // 파일 크기 체크 (5MB 제한)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('이미지 파일 크기는 5MB 이하여야 합니다.');
+        if (!file) return;
+        
+        // 파일 크기 체크 (10MB 제한 - 압축 후 크기 감소 예상)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('이미지 파일 크기는 10MB 이하여야 합니다.');
                 return;
             }
             
@@ -191,34 +274,59 @@ export default function Manager() {
             setPortfolioImageUploading(true);
             
             try {
-                // Google Forms용 이미지 최적화
-                const result = await optimizeForGoogleForms(file);
-                
-                const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
-                
-                // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
-                if (result.base64.length > 10000) {
-                    alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+            console.log('📸 메인 이미지 압축 시작:', {
+                원본크기: `${Math.round(file.size / 1024)}KB`,
+                파일명: file.name
+            });
+
+            // 1단계: 적절한 품질로 압축 (2560x2560, quality 0.5) - 2개 셀 사용 시 최대 100,000자까지 가능
+            let compressedBase64 = await compressImageToBase64(file, {
+                maxWidth: 2560,
+                maxHeight: 2560,
+                quality: 0.5,
+                format: 'image/jpeg'
+            });
+
+            const initialSize = compressedBase64.length;
+            const initialSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+            console.log(`✅ 1단계 압축 완료: ${initialSize}자 (${initialSizeKB}KB)`);
+
+            // 2단계: 100,000자 초과 시 재압축 (목표: 95KB ≈ 127,000자, 안전 마진)
+            if (initialSize > 100000) {
+                console.log('🔄 2단계 재압축 시작 (100,000자 이하 목표)...');
+                compressedBase64 = await recompressBase64(compressedBase64, 95);
+                const finalSize = compressedBase64.length;
+                const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+                console.log(`✅ 2단계 재압축 완료: ${finalSize}자 (${finalSizeKB}KB)`);
+            }
+
+            const finalSize = compressedBase64.length;
+            const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+            
+            // 100,000자 초과 시 업로드 차단 (2개 셀 = 50,000자 x 2)
+            if (finalSize > 100000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자 (${finalSizeKB}KB)\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
                     setPortfolioImageUploading(false);
                     return;
                 }
                 
-                // 5000자 초과 시 분할 저장
-                let mainImage = result.base64;
+            // 50,000자 초과 시 2개 셀에 분할 저장
+            let mainImage = compressedBase64;
                 let mainImageExtra = '';
                 
-                if (result.base64.length > 5000) {
-                    mainImage = result.base64.substring(0, 5000);
-                    mainImageExtra = result.base64.substring(5000);
-                    console.log(`✂️ 메인 이미지 분할: ${result.base64.length}자 → ${mainImage.length}자 + ${mainImageExtra.length}자`);
+            if (finalSize > 50000) {
+                mainImage = compressedBase64.substring(0, 50000);
+                mainImageExtra = compressedBase64.substring(50000);
+                console.log(`✂️ 메인 이미지 분할: ${finalSize}자 → ${mainImage.length}자 + ${mainImageExtra.length}자`);
+                console.log(`📊 분할 저장: 첫 번째 셀 ${Math.round(getBase64Size(mainImage) / 1024)}KB, 두 번째 셀 ${Math.round(getBase64Size(mainImageExtra) / 1024)}KB`);
                 } else {
-                    console.log(`✅ 메인 이미지 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
+                console.log(`✅ 메인 이미지 최적화 완료: ${finalSize}자 (${finalSizeKB}KB) - 단일 셀 저장`);
                 }
                 
-        setUploadForm(prev => ({
-            ...prev,
-                    mainImage,
-                    mainImageExtra,
+                setUploadForm(prev => ({
+                    ...prev,
+                mainImage: mainImage,
+                mainImageExtra: mainImageExtra,
                     mainImageFile: file
                 }));
             } catch (error) {
@@ -226,7 +334,6 @@ export default function Manager() {
                 alert('이미지 처리 중 오류가 발생했습니다.');
             } finally {
                 setPortfolioImageUploading(false);
-            }
         }
     };
 
@@ -235,9 +342,9 @@ export default function Manager() {
         
         if (!file) return;
         
-        // 파일 크기 체크 (5MB 제한)
-        if (file.size > 5 * 1024 * 1024) {
-            alert('이미지 파일 크기는 5MB 이하여야 합니다.');
+        // 파일 크기 체크 (10MB 제한 - 압축 후 크기 감소 예상)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('이미지 파일 크기는 10MB 이하여야 합니다.');
             return;
         }
         
@@ -250,28 +357,53 @@ export default function Manager() {
         setPortfolioImageUploading(true);
         
         try {
-            // Google Forms용 이미지 최적화
-            const result = await optimizeForGoogleForms(file);
+            console.log(`📸 상세 이미지 ${index + 1} 압축 시작:`, {
+                원본크기: `${Math.round(file.size / 1024)}KB`,
+                파일명: file.name
+            });
+
+            // 1단계: 상세 이미지 압축 (2560x2560, quality 0.6) - 2개 셀 사용 시 최대 100,000자까지 가능
+            let compressedBase64 = await compressImageToBase64(file, {
+                maxWidth: 2560,
+                maxHeight: 2560,
+                quality: 0.5,
+                format: 'image/jpeg'
+            });
+
+            const initialSize = compressedBase64.length;
+            const initialSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+            console.log(`✅ 1단계 압축 완료: ${initialSize}자 (${initialSizeKB}KB)`);
+
+            // 2단계: 100,000자 초과 시 재압축 (목표: 95KB ≈ 127,000자, 안전 마진)
+            if (initialSize > 100000) {
+                console.log('🔄 2단계 재압축 시작 (100,000자 이하 목표)...');
+                compressedBase64 = await recompressBase64(compressedBase64, 95);
+                const finalSize = compressedBase64.length;
+                const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+                console.log(`✅ 2단계 재압축 완료: ${finalSize}자 (${finalSizeKB}KB)`);
+            }
+
+            const finalSize = compressedBase64.length;
+            const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
             
-            const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
-            
-            // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
-            if (result.base64.length > 10000) {
-                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+            // 100,000자 초과 시 업로드 차단 (2개 셀 = 50,000자 x 2)
+            if (finalSize > 100000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자 (${finalSizeKB}KB)\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
                 setPortfolioImageUploading(false);
                 return;
             }
             
-            // 5000자 초과 시 분할 저장
-            let detailImage = result.base64;
+            // 50,000자 초과 시 2개 셀에 분할 저장
+            let detailImage = compressedBase64;
             let detailImageExtra = '';
             
-            if (result.base64.length > 5000) {
-                detailImage = result.base64.substring(0, 5000);
-                detailImageExtra = result.base64.substring(5000);
-                console.log(`✂️ 상세 이미지 ${index + 1} 분할: ${result.base64.length}자 → ${detailImage.length}자 + ${detailImageExtra.length}자`);
+            if (finalSize > 50000) {
+                detailImage = compressedBase64.substring(0, 50000);
+                detailImageExtra = compressedBase64.substring(50000);
+                console.log(`✂️ 상세 이미지 ${index + 1} 분할: ${finalSize}자 → ${detailImage.length}자 + ${detailImageExtra.length}자`);
+                console.log(`📊 분할 저장: 첫 번째 셀 ${Math.round(getBase64Size(detailImage) / 1024)}KB, 두 번째 셀 ${Math.round(getBase64Size(detailImageExtra) / 1024)}KB`);
             } else {
-                console.log(`✅ 상세 이미지 ${index + 1} 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
+                console.log(`✅ 상세 이미지 ${index + 1} 최적화 완료: ${finalSize}자 (${finalSizeKB}KB) - 단일 셀 저장`);
             }
             
             // 인덱스에 따라 적절한 필드 업데이트
@@ -350,61 +482,53 @@ export default function Manager() {
         }
 
         try {
-            // 날짜 파싱 (YYYY-MM-DD → 년/월/일)
-            const dateParts = uploadForm.installmentDate.split('-');
-            const year = dateParts[0] || '';
-            const month = dateParts[1] || '';
-            const day = dateParts[2] || '';
-            
-            // Google Form entry ID 매핑
-            const formData = new URLSearchParams({
-                'entry.268525121': uploadForm.title,                    // title
-                'entry.445250326': uploadForm.description,              // description
-                'entry.1338649390': uploadForm.location,                // location
-                'entry.1875876176_year': year,                          // installmentDate (년)
-                'entry.1875876176_month': month,                        // installmentDate (월)
-                'entry.1875876176_day': day,                            // installmentDate (일)
-                'entry.1941840310': uploadForm.equipment,               // equipment
-                'entry.1962300566': uploadForm.mainImage,               // mainImage
-                'entry.1304580810': uploadForm.mainImageExtra,          // mainImageExtra
-                'entry.405209635': uploadForm.detailImage1,             // detailImage1
-                'entry.1965732542': uploadForm.detailImageExtra1,       // detailImageExtra1
-                'entry.1974154502': uploadForm.detailImage2,            // detailImage2
-                'entry.468946990': uploadForm.detailImageExtra2,        // detailImageExtra2
-                'entry.1004128133': uploadForm.detailImage3,            // detailImage3
-                'entry.896297628': uploadForm.detailImageExtra3         // detailImageExtra3
+            // OAuth 토큰 가져오기
+            const { token, user } = managerStorage.get();
+            console.log('🔑 토큰 확인:', {
+                tokenExists: !!token,
+                tokenLength: token?.length || 0,
+                user: user ? { email: user.email, isAuthorized: user.isAuthorized } : null
             });
+            
+            if (!token) {
+                alert('인증이 필요합니다. 다시 로그인해주세요.');
+                return;
+            }
 
-            console.log('시공사례 제출 데이터:', {
+            console.log('📤 시공사례 저장 데이터:', {
                 title: uploadForm.title,
                 description: uploadForm.description,
                 location: uploadForm.location,
-                date: `${year}-${month}-${day}`,
+                installmentDate: uploadForm.installmentDate,
                 equipment: uploadForm.equipment,
                 mainImageLength: uploadForm.mainImage.length,
-                mainImageExtraLength: uploadForm.mainImageExtra.length,
-                detailImage1Length: uploadForm.detailImage1.length,
-                detailImage2Length: uploadForm.detailImage2.length,
-                detailImage3Length: uploadForm.detailImage3.length
+                mainImageExtraLength: uploadForm.mainImageExtra?.length || 0,
+                detailImage1Length: uploadForm.detailImage1?.length || 0,
+                detailImageExtra1Length: uploadForm.detailImageExtra1?.length || 0,
+                detailImage2Length: uploadForm.detailImage2?.length || 0,
+                detailImageExtra2Length: uploadForm.detailImageExtra2?.length || 0,
+                detailImage3Length: uploadForm.detailImage3?.length || 0,
+                detailImageExtra3Length: uploadForm.detailImageExtra3?.length || 0
             });
 
-            // Google Form URL
-            // https://docs.google.com/forms/d/e/1FAIpQLSdKF-fqAz5NIvIIo6kPhp-GbAk7E1Tub-EXIqWvcpmHLX7ptQ/viewform
-            const PORTFOLIO_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdKF-fqAz5NIvIIo6kPhp-GbAk7E1Tub-EXIqWvcpmHLX7ptQ/formResponse';
-            
-            // Google Form에 제출
-            const response = await fetch(PORTFOLIO_FORM_URL, {
-                method: 'POST',
-                mode: 'no-cors', // Google Form은 CORS를 지원하지 않으므로
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: formData
+            // Google Sheets API로 직접 저장 (분할 이미지 그대로 전달)
+            await writePortfolioToSheet(token, {
+                title: uploadForm.title,
+                description: uploadForm.description,
+                location: uploadForm.location,
+                installmentDate: uploadForm.installmentDate,
+                equipment: uploadForm.equipment,
+                mainImage: uploadForm.mainImage,
+                mainImageExtra: uploadForm.mainImageExtra || undefined,
+                detailImage1: uploadForm.detailImage1 || undefined,
+                detailImageExtra1: uploadForm.detailImageExtra1 || undefined,
+                detailImage2: uploadForm.detailImage2 || undefined,
+                detailImageExtra2: uploadForm.detailImageExtra2 || undefined,
+                detailImage3: uploadForm.detailImage3 || undefined,
+                detailImageExtra3: uploadForm.detailImageExtra3 || undefined,
             });
 
-            // no-cors 모드에서는 response.ok를 확인할 수 없으므로 성공으로 간주
-            console.log('시공사례 데이터가 Google Form에 제출되었습니다.');
-            alert('시공사례가 성공적으로 업로드되었습니다!');
+            alert('시공사례가 성공적으로 저장되었습니다!');
                 
                 // 폼 초기화
                 setUploadForm({
@@ -413,17 +537,17 @@ export default function Manager() {
                     location: '',
                     installmentDate: '',
                     equipment: '',
-                mainImage: '',
-                mainImageExtra: '',
-                detailImage1: '',
-                detailImageExtra1: '',
-                detailImage2: '',
-                detailImageExtra2: '',
-                detailImage3: '',
-                detailImageExtra3: '',
-                mainImageFile: null,
-                detailImageFiles: []
-            });
+                    mainImage: '',
+                    mainImageExtra: '',
+                    detailImage1: '',
+                    detailImageExtra1: '',
+                    detailImage2: '',
+                    detailImageExtra2: '',
+                    detailImage3: '',
+                    detailImageExtra3: '',
+                    mainImageFile: null,
+                    detailImageFiles: []
+                });
             
             // 모달 닫기
             setShowAddPortfolio(false);
@@ -433,7 +557,14 @@ export default function Manager() {
 
         } catch (error) {
             console.error('업로드 에러:', error);
-            alert('업로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
+            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+            alert(`업로드 중 오류가 발생했습니다: ${errorMessage}`);
         }
     };
 
@@ -443,182 +574,530 @@ export default function Manager() {
         setShowAddProduct(false);
     };
 
-    // 시공사례 목록 가져오기
+    // Base64 이미지를 디코딩하는 함수
+    const decodeBase64Image = (base64String: string): string | null => {
+        if (!base64String || base64String.trim() === '') return null;
+        // 이미 data:image로 시작하면 그대로 반환
+        if (base64String.startsWith('data:image')) {
+            return base64String;
+        }
+        // Base64 데이터만 있는 경우 data:image 헤더 추가
+        // JPEG인지 PNG인지 확인 (일반적으로 JPEG 사용)
+        return `data:image/jpeg;base64,${base64String}`;
+    };
+
+    // 시공사례 목록 가져오기 (Google Sheets API 사용)
     const fetchPortfolioItems = async () => {
         setPortfolioLoading(true);
         try {
-            const PORTFOLIO_SPREADSHEET_ID = "1XYBvUwDqzlfF9DnBiSKLgFsC_XA6k22auI_0I29Airs";
-            console.log('📊 시공사례 스프레드시트 ID:', PORTFOLIO_SPREADSHEET_ID);
-            
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/${PORTFOLIO_SPREADSHEET_ID}/export?format=csv`
-            );
-            
-            if (!response.ok) {
-                throw new Error('시공사례 데이터를 가져오는데 실패했습니다.');
+            // OAuth 토큰 가져오기
+            const { token } = managerStorage.get();
+            if (!token) {
+                throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
             }
             
-            const csvText = await response.text();
-            console.log('📄 시공사례 CSV 데이터 (처음 200자):', csvText.substring(0, 200));
+            console.log('📊 시공사례 데이터 읽기 시작 (Google Sheets API 사용)');
             
-            // CSV 파싱 (복잡한 필드 처리 - 제품 목록과 동일한 방식)
-            const parseCSV = (text: string) => {
-                const rows: string[][] = [];
-                let currentRow: string[] = [];
-                let currentField = '';
-                let inQuotes = false;
-
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    const nextChar = text[i + 1];
-
-                    if (char === '"') {
-                        if (inQuotes && nextChar === '"') {
-                            currentField += '"';
-                            i++;
-                        } else {
-                            inQuotes = !inQuotes;
-                        }
-                    } else if (char === ',' && !inQuotes) {
-                        currentRow.push(currentField);
-                        currentField = '';
-                    } else if (char === '\n' && !inQuotes) {
-                        currentRow.push(currentField);
-                        if (currentRow.some(field => field.trim() !== '')) {
-                            rows.push(currentRow);
-                        }
-                        currentRow = [];
-                        currentField = '';
-                    } else {
-                        currentField += char;
-                    }
-                }
-
-                if (currentField || currentRow.length > 0) {
-                    currentRow.push(currentField);
-                    if (currentRow.some(field => field.trim() !== '')) {
-                        rows.push(currentRow);
-                    }
-                }
-
-                return rows;
-            };
-
-            const rows = parseCSV(csvText);
-            console.log('📊 파싱된 행 수:', rows.length);
+            // Google Sheets API를 사용하여 데이터 읽기
+            const items = await readPortfolioData(token);
             
-            if (rows.length <= 1) {
-                console.warn('시공사례 데이터가 없습니다.');
-                setPortfolioItems([]);
+            // 이미지 URL 변환 및 상세 이미지 URL 생성
+            const itemsWithImages = items.map((item: any) => ({
+                ...item,
+                mainImageUrl: decodeBase64Image(item.mainImage),
+                detailImageUrls: item.detailImages.map((img: string) => decodeBase64Image(img)).filter((url: string | null) => url !== null)
+            }));
+            
+            console.log('📋 파싱된 시공사례 항목들:', itemsWithImages);
+            console.log(`✅ 시공사례 ${itemsWithImages.length}개를 불러왔습니다.`);
+            
+            setPortfolioItems(itemsWithImages);
+            setCurrentPortfolioPage(1); // 목록 새로고침 시 첫 페이지로 이동
+        } catch (error) {
+            console.error('❌ 시공사례 데이터 가져오기 오류:', error);
+            console.error('에러 상세:', error instanceof Error ? error.message : String(error));
+            console.error('에러 스택:', error instanceof Error ? error.stack : '');
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
                 return;
             }
             
-            const headers = rows[0];
-            console.log('📋 시공사례 헤더:', headers);
-            
-            const items = rows.slice(1).map((values, index) => {
-                // 스프레드시트 컬럼 구조:
-                // 0: 타임스탬프, 1: id, 2: title, 3: description, 4: location, 
-                // 5: installmentDate, 6: equipment, 7: mainImage, 8: mainImageExtra,
-                // 9: detailImage1, 10: detailImageExtra1, 11: detailImage2, 
-                // 12: detailImageExtra2, 13: detailImage3, 14: detailImageExtra3
-                
-                const title = values[2]?.trim() || '';
-                const description = values[3]?.trim() || '';
-                const location = values[4]?.trim() || '';
-                const date = values[5]?.trim() || '';
-                const equipment = values[6]?.trim() || '';
-                
-                // 이미지 조합 (mainImage + mainImageExtra)
-                const mainImage = (values[7]?.trim() || '') + (values[8]?.trim() || '');
-                const detailImage1 = (values[9]?.trim() || '') + (values[10]?.trim() || '');
-                const detailImage2 = (values[11]?.trim() || '') + (values[12]?.trim() || '');
-                const detailImage3 = (values[13]?.trim() || '') + (values[14]?.trim() || '');
-                
-                console.log(`시공사례 ${index + 1}:`, {
-                    title,
-                    description: description.substring(0, 50) + '...',
-                    location,
-                    date,
-                    equipment: equipment.substring(0, 50) + '...',
-                    mainImageLength: mainImage.length,
-                    detailImage1Length: detailImage1.length,
-                    detailImage2Length: detailImage2.length,
-                    detailImage3Length: detailImage3.length
-                });
-                
-                return {
-                    id: index + 1,
-                    title,
-                    description,
-                    location,
-                    date,
-                    equipment,
-                    mainImage,
-                    detailImages: [detailImage1, detailImage2, detailImage3].filter(img => img)
-                };
-            }).filter(item => item.title);
-            
-            setPortfolioItems(items);
-            console.log(`✅ 시공사례 ${items.length}개를 불러왔습니다.`);
-        } catch (error) {
-            console.error('시공사례 데이터 가져오기 오류:', error);
             setPortfolioItems([]);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            alert(`시공사례 데이터를 불러오는데 실패했습니다.\n\n오류: ${errorMessage}\n\n브라우저 콘솔을 확인해주세요.`);
         } finally {
             setPortfolioLoading(false);
+        }
+    };
+
+    // 시공사례 수정 저장
+    const handleSavePortfolio = async () => {
+        if (!selectedPortfolio || !editingPortfolioData) return;
+        
+        setSavingPortfolio(true);
+        try {
+            const { token } = managerStorage.get();
+            if (!token) {
+                throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+            }
+
+            // rowIndex가 없으면 id를 기반으로 계산 (id는 1-based, rowIndex는 헤더 포함이므로 id + 1)
+            const rowIndex = selectedPortfolio.rowIndex || selectedPortfolio.id + 1;
+            
+            // 이미지 업데이트: 새 이미지가 선택된 경우에만 업데이트
+            const updateData: any = {
+                title: editingPortfolioData.title,
+                description: editingPortfolioData.description,
+                location: editingPortfolioData.location,
+                date: editingPortfolioData.date,
+                equipment: editingPortfolioData.equipment
+            };
+            
+            // 새 메인 이미지가 선택된 경우에만 업데이트
+            if (editingPortfolioData.mainImage) {
+                updateData.mainImage = editingPortfolioData.mainImage;
+                updateData.mainImageExtra = editingPortfolioData.mainImageExtra || '';
+            }
+            
+            // 새 상세 이미지가 선택된 경우에만 업데이트
+            if (editingPortfolioData.detailImage1) {
+                updateData.detailImage1 = editingPortfolioData.detailImage1;
+                updateData.detailImageExtra1 = editingPortfolioData.detailImageExtra1 || '';
+            }
+            if (editingPortfolioData.detailImage2) {
+                updateData.detailImage2 = editingPortfolioData.detailImage2;
+                updateData.detailImageExtra2 = editingPortfolioData.detailImageExtra2 || '';
+            }
+            if (editingPortfolioData.detailImage3) {
+                updateData.detailImage3 = editingPortfolioData.detailImage3;
+                updateData.detailImageExtra3 = editingPortfolioData.detailImageExtra3 || '';
+            }
+            
+            await updatePortfolioRow(token, rowIndex, updateData);
+
+            // 목록 새로고침
+            await fetchPortfolioItems();
+            
+            // 수정된 데이터로 selectedPortfolio 업데이트
+            const updatedPortfolio = {
+                ...selectedPortfolio,
+                ...editingPortfolioData
+            };
+            setSelectedPortfolio(updatedPortfolio);
+            setIsEditingPortfolio(false);
+            setEditingPortfolioData(null);
+            
+            alert('시공사례가 성공적으로 수정되었습니다.');
+        } catch (error) {
+            console.error('시공사례 수정 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            alert(`시공사례 수정에 실패했습니다.\n\n오류: ${errorMessage}`);
+        } finally {
+            setSavingPortfolio(false);
+        }
+    };
+
+    // 편집 모드 시작
+    const handleStartEdit = () => {
+        setEditingPortfolioData({
+            title: selectedPortfolio?.title || '',
+            description: selectedPortfolio?.description || '',
+            location: selectedPortfolio?.location || '',
+            date: selectedPortfolio?.date || '',
+            equipment: selectedPortfolio?.equipment || '',
+            mainImage: '', // 새로 선택한 이미지만 저장
+            mainImageExtra: '',
+            detailImage1: '', // 새로 선택한 이미지만 저장
+            detailImageExtra1: '',
+            detailImage2: '',
+            detailImageExtra2: '',
+            detailImage3: '',
+            detailImageExtra3: '',
+            // 기존 이미지 정보는 별도로 보관
+            hasOriginalMainImage: !!selectedPortfolio?.mainImageUrl,
+            originalDetailImages: selectedPortfolio?.detailImageUrls || []
+        });
+        setIsEditingPortfolio(true);
+    };
+
+    // 편집 모드에서 메인 이미지 변경
+    const handleEditMainImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) return;
+        
+        if (file.size > 10 * 1024 * 1024) {
+            alert('이미지 파일 크기는 10MB 이하여야 합니다.');
+                return;
+            }
+            
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        
+        setEditingImageUploading(true);
+        try {
+            let compressedBase64 = await compressImageToBase64(file, {
+                maxWidth: 2560,
+                maxHeight: 2560,
+                quality: 0.7,
+                format: 'image/jpeg'
+            });
+            
+            const initialSize = compressedBase64.length;
+            if (initialSize > 100000) {
+                compressedBase64 = await recompressBase64(compressedBase64, 95);
+            }
+            
+            const finalSize = compressedBase64.length;
+            if (finalSize > 100000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                setEditingImageUploading(false);
+                return;
+            }
+            
+            let mainImage = compressedBase64;
+            let mainImageExtra = '';
+            if (finalSize > 50000) {
+                mainImage = compressedBase64.substring(0, 50000);
+                mainImageExtra = compressedBase64.substring(50000);
+            }
+            
+            setEditingPortfolioData({
+                ...editingPortfolioData,
+                mainImage: mainImage,
+                mainImageExtra: mainImageExtra
+            });
+        } catch (error) {
+            console.error('이미지 인코딩 오류:', error);
+            alert('이미지 처리 중 오류가 발생했습니다.');
+        } finally {
+            setEditingImageUploading(false);
+        }
+    };
+
+    // 편집 모드에서 상세 이미지 변경
+    const handleEditDetailImageChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) return;
+        
+        if (file.size > 10 * 1024 * 1024) {
+            alert('이미지 파일 크기는 10MB 이하여야 합니다.');
+            return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        
+        setEditingImageUploading(true);
+        try {
+            let compressedBase64 = await compressImageToBase64(file, {
+                maxWidth: 2560,
+                maxHeight: 2560,
+                quality: 0.6,
+                format: 'image/jpeg'
+            });
+            
+            const initialSize = compressedBase64.length;
+            if (initialSize > 100000) {
+                compressedBase64 = await recompressBase64(compressedBase64, 95);
+            }
+            
+            const finalSize = compressedBase64.length;
+            if (finalSize > 100000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                setEditingImageUploading(false);
+                return;
+            }
+            
+            let detailImage = compressedBase64;
+            let detailImageExtra = '';
+            if (finalSize > 50000) {
+                detailImage = compressedBase64.substring(0, 50000);
+                detailImageExtra = compressedBase64.substring(50000);
+            }
+            
+            setEditingPortfolioData({
+                ...editingPortfolioData,
+                [`detailImage${index + 1}`]: detailImage,
+                [`detailImageExtra${index + 1}`]: detailImageExtra
+            });
+        } catch (error) {
+            console.error('이미지 인코딩 오류:', error);
+            alert('이미지 처리 중 오류가 발생했습니다.');
+        } finally {
+            setEditingImageUploading(false);
+        }
+    };
+
+    // 편집 취소
+    const handleCancelEdit = () => {
+        setIsEditingPortfolio(false);
+        setEditingPortfolioData(null);
+    };
+    
+    // 제품 편집 시작
+    const handleStartEditProduct = () => {
+        setEditingProductData({
+            productName: selectedProduct?.productName || '',
+            category: selectedProduct?.category || '',
+            description: selectedProduct?.description || '',
+            specification: selectedProduct?.specification || '',
+            productImage: '', // 새로 선택한 이미지만 저장
+            productImageExtra: '', // 새로 선택한 이미지 추가 부분
+        });
+        setHasOriginalProductImage(!!selectedProduct?.productImageUrl);
+        setProductImageError(false);
+        setIsEditingProduct(true);
+    };
+    
+    // 제품 편집 취소
+    const handleCancelEditProduct = () => {
+        setIsEditingProduct(false);
+        setEditingProductData(null);
+    };
+    
+    // 제품 저장
+    const handleSaveProduct = async () => {
+        if (!selectedProduct) return;
+        
+        setSavingProduct(true);
+        try {
+            const { token } = managerStorage.get();
+            if (!token) {
+                throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+            }
+
+            // rowIndex는 헤더 포함 1-based 인덱스
+            // readProductData에서 계산된 rowIndex를 사용
+            // writeProductToSheet는 A1:append를 사용하므로 헤더 없이 데이터만 추가됨
+            // 따라서 실제 시트에는 헤더가 없을 가능성이 높음
+            // 하지만 readProductData에서 헤더를 감지했을 수도 있으므로 확인 필요
+            
+            let rowIndex = selectedProduct.rowIndex;
+            
+            // rowIndex가 없거나 유효하지 않은 경우
+            if (!rowIndex || rowIndex < 1) {
+                // products 배열에서 인덱스를 찾아서 계산
+                const productIndex = products.findIndex(p => p.id === selectedProduct.id);
+                if (productIndex !== -1) {
+                    // writeProductToSheet가 헤더 없이 추가하므로 헤더가 없을 가능성이 높음
+                    // 하지만 안전하게 헤더가 있다고 가정하고 +2로 계산
+                    rowIndex = productIndex + 2; // 헤더 있음 가정 (1행이 헤더, 2행부터 데이터)
+                } else {
+                    rowIndex = 2; // 기본값
+                }
+            }
+            
+            // rowIndex가 1인 경우 (헤더 행)는 건너뛰기
+            if (rowIndex === 1) {
+                rowIndex = 2;
+            }
+            
+            console.log('🔍 rowIndex 계산:', {
+                selectedProductRowIndex: selectedProduct.rowIndex,
+                finalRowIndex: rowIndex,
+                productId: selectedProduct.id,
+                productIndexInArray: products.findIndex(p => p.id === selectedProduct.id),
+                totalProducts: products.length
+            });
+            
+            console.log('💾 제품 저장 시작:', {
+                selectedProduct: {
+                    id: selectedProduct.id,
+                    rowIndex: selectedProduct.rowIndex,
+                    productName: selectedProduct.productName
+                },
+                editingProductData: {
+                    productName: editingProductData.productName,
+                    category: editingProductData.category,
+                    description: editingProductData.description?.substring(0, 50),
+                    specification: editingProductData.specification?.substring(0, 50),
+                    hasImage: !!editingProductData.productImage
+                },
+                calculatedRowIndex: rowIndex
+            });
+            
+            // 이미지 업데이트: 새 이미지가 선택된 경우에만 업데이트
+            const updateData: any = {
+                productName: editingProductData.productName,
+                category: editingProductData.category,
+                description: editingProductData.description,
+                specification: editingProductData.specification
+            };
+            
+            // 새 제품 이미지가 선택된 경우에만 업데이트
+            if (editingProductData.productImage) {
+                updateData.productImage = editingProductData.productImage;
+                updateData.productImageExtra = editingProductData.productImageExtra || '';
+                console.log('🖼️ 제품 이미지 업데이트 데이터:', {
+                    productImageLength: editingProductData.productImage.length,
+                    productImageExtraLength: editingProductData.productImageExtra?.length || 0,
+                    productImagePreview: editingProductData.productImage.substring(0, 50),
+                    productImageExtraPreview: editingProductData.productImageExtra?.substring(0, 50) || ''
+                });
+            } else {
+                console.log('⚠️ 제품 이미지가 없어서 이미지 업데이트를 건너뜁니다.');
+            }
+            
+            console.log('📤 updateProductRow 호출:', {
+                rowIndex,
+                updateDataKeys: Object.keys(updateData),
+                updateData: {
+                    ...updateData,
+                    productImage: updateData.productImage ? `${updateData.productImage.length}자` : undefined,
+                    productImageExtra: updateData.productImageExtra ? `${updateData.productImageExtra.length}자` : undefined
+                }
+            });
+            
+            await updateProductRow(token, rowIndex, updateData);
+
+            // 목록 새로고침
+            await fetchProducts();
+            
+            // 수정된 데이터로 selectedProduct 업데이트
+            const updatedProduct = {
+                ...selectedProduct,
+                ...editingProductData
+            };
+            if (editingProductData.productImage) {
+                updatedProduct.productImageUrl = `data:image/jpeg;base64,${editingProductData.productImage}`;
+            }
+            setSelectedProduct(updatedProduct);
+            setIsEditingProduct(false);
+            setEditingProductData(null);
+            
+            alert('제품이 성공적으로 수정되었습니다.');
+        } catch (error) {
+            console.error('제품 수정 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            alert(`제품 수정에 실패했습니다.\n\n오류: ${errorMessage}`);
+        } finally {
+            setSavingProduct(false);
+        }
+    };
+    
+    // 편집 모드에서 제품 이미지 변경
+    const handleEditProductImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) {
+            setEditingProductData((prev: any) => ({
+                ...prev,
+                productImage: hasOriginalProductImage ? selectedProduct.productImage : '',
+            }));
+            return;
+        }
+        
+        if (file.size > 10 * 1024 * 1024) {
+            alert('이미지 파일 크기는 10MB 이하여야 합니다.');
+            return;
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        
+        setEditingProductImageUploading(true);
+        try {
+            console.log('📸 편집 모드 제품 이미지 압축 시작:', {
+                원본크기: `${Math.round(file.size / 1024)}KB`,
+                파일명: file.name
+            });
+            
+            let compressedBase64 = await compressImageToBase64(file, {
+                maxWidth: 2560,
+                maxHeight: 2560,
+                quality: 0.5,
+                format: 'image/jpeg'
+            });
+            
+            const initialSize = compressedBase64.length;
+            const initialSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+            console.log(`✅ 1단계 압축 완료: ${initialSize}자 (${initialSizeKB}KB)`);
+            
+            // 2단계: 100,000자 초과 시 재압축
+            if (initialSize > 100000) {
+                console.log('🔄 2단계 재압축 시작 (100,000자 이하 목표)...');
+                compressedBase64 = await recompressBase64(compressedBase64, 95);
+                const finalSize = compressedBase64.length;
+                const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+                console.log(`✅ 2단계 재압축 완료: ${finalSize}자 (${finalSizeKB}KB)`);
+            }
+            
+            const finalSize = compressedBase64.length;
+            const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+            
+            // 100,000자 초과 시 업로드 차단 (2개 셀 = 50,000자 x 2)
+            if (finalSize > 100000) {
+                alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자 (${finalSizeKB}KB)\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                setEditingProductImageUploading(false);
+                return;
+            }
+            
+            // 50,000자 초과 시 2개 셀에 분할 저장
+            let productImage = compressedBase64;
+            let productImageExtra = '';
+            
+            if (finalSize > 50000) {
+                productImage = compressedBase64.substring(0, 50000);
+                productImageExtra = compressedBase64.substring(50000);
+                console.log(`✂️ 제품 이미지 분할: ${finalSize}자 → ${productImage.length}자 + ${productImageExtra.length}자`);
+                console.log(`📊 분할 저장: 첫 번째 셀 ${Math.round(getBase64Size(productImage) / 1024)}KB, 두 번째 셀 ${Math.round(getBase64Size(productImageExtra) / 1024)}KB`);
+            } else {
+                console.log(`✅ 제품 이미지 최적화 완료: ${finalSize}자 (${finalSizeKB}KB) - 단일 셀 저장`);
+            }
+            
+            setEditingProductData((prev: any) => ({
+                ...prev,
+                productImage: productImage,
+                productImageExtra: productImageExtra,
+            }));
+        } catch (error) {
+            console.error('이미지 인코딩 오류:', error);
+            alert('이미지 처리 중 오류가 발생했습니다.');
+        } finally {
+            setEditingProductImageUploading(false);
         }
     };
     
     // 제품 목록 가져오기
     const fetchProducts = async () => {
-        setLoading(true);
+        setProductLoading(true);
         try {
-            // 제품소개 페이지와 동일한 하드코딩된 데이터 사용
-            const productsData = [
-                {
-                    id: 1,
-                    model: "E212",
-                    kind: "메인 스피커",
-                    description: "E212 스피커는 유수한 스피커제조사들이 사용하는 B&C(ITALY) SPEAKER를 시작으로...",
-                    spec: "TYPE: 2WAY PASSIVE SPEAKER\nCOMPONENTS: LOW: 2 X 12\" 3\" VOICE COIL (B&C)",
-                    mainImage: speakerImage,
-                    alt: "E212 스피커"
-                },
-                {
-                    id: 2,
-                    model: "TS M12",
-                    kind: "12인치 모니터",
-                    description: "12인치 모니터 스피커입니다.",
-                    spec: "",
-                    mainImage: videoImage,
-                    alt: "TS M12 모니터"
-                },
-                {
-                    id: 3,
-                    model: "E12",
-                    kind: "딜레이 스피커",
-                    description: "딜레이 스피커입니다.",
-                    spec: "",
-                    mainImage: spotlightsImage,
-                    alt: "E12 딜레이 스피커"
-                },
-                {
-                    id: 4,
-                    model: "S218",
-                    kind: "서브우퍼",
-                    description: "18인치 서브우퍼입니다.",
-                    spec: "",
-                    mainImage: ledImage,
-                    alt: "S218 서브우퍼"
-                }
-            ];
-            
+            const { token } = managerStorage.get();
+            if (!token) {
+                throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+            }
+
+            const productsData = await readProductData(token);
             setProducts(productsData);
         } catch (error) {
             console.error('제품 데이터 가져오기 오류:', error);
+            
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            
             setProducts([]);
         } finally {
-            setLoading(false);
+            setProductLoading(false);
         }
     };
 
@@ -650,9 +1129,9 @@ export default function Manager() {
         const file = e.target.files?.[0] || null;
         
         if (file) {
-            // 파일 크기 체크 (5MB 제한)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('이미지 파일 크기는 5MB 이하여야 합니다.');
+            // 파일 크기 체크 (10MB 제한 - 압축 후 크기 감소 예상)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('이미지 파일 크기는 10MB 이하여야 합니다.');
             return;
         }
 
@@ -665,28 +1144,53 @@ export default function Manager() {
             setImageUploading(true);
             
             try {
-                // Google Forms용 이미지 최적화 (5000자 이하로 압축)
-                const result = await optimizeForGoogleForms(file);
+                console.log('📸 이미지 압축 시작:', {
+                    원본크기: `${Math.round(file.size / 1024)}KB`,
+                    파일명: file.name
+                });
+
+                // 1단계: 적절한 품질로 압축 (2560x2560, quality 0.5) - 2개 셀 사용 시 최대 100,000자까지 가능
+                let compressedBase64 = await compressImageToBase64(file, {
+                    maxWidth: 2560,
+                    maxHeight: 2560,
+                    quality: 0.5,
+                    format: 'image/jpeg'
+                });
+
+                const initialSize = compressedBase64.length;
+                const initialSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+                console.log(`✅ 1단계 압축 완료: ${initialSize}자 (${initialSizeKB}KB)`);
+
+                // 2단계: 100,000자 초과 시 재압축 (목표: 95KB ≈ 127,000자, 안전 마진)
+                if (initialSize > 100000) {
+                    console.log('🔄 2단계 재압축 시작 (100,000자 이하 목표)...');
+                    compressedBase64 = await recompressBase64(compressedBase64, 95);
+                    const finalSize = compressedBase64.length;
+                    const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
+                    console.log(`✅ 2단계 재압축 완료: ${finalSize}자 (${finalSizeKB}KB)`);
+                }
+
+                const finalSize = compressedBase64.length;
+                const finalSizeKB = Math.round(getBase64Size(compressedBase64) / 1024);
                 
-                const sizeKB = Math.round(getBase64Size(result.base64) / 1024);
-                
-                // 10000자 초과 시 업로드 차단 (5000자씩 2개 필드)
-                if (result.base64.length > 10000) {
-                    alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${result.base64.length}자 (${sizeKB}KB)\n최대 허용: 10,000자\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
+                // 100,000자 초과 시 업로드 차단 (2개 셀 = 50,000자 x 2)
+                if (finalSize > 100000) {
+                    alert(`⚠️ 이미지가 너무 큽니다!\n\n현재 크기: ${finalSize}자 (${finalSizeKB}KB)\n최대 허용: 100,000자 (2개 셀)\n\n더 작은 이미지를 사용하거나 해상도를 낮춰주세요.`);
                     setImageUploading(false);
                     return;
                 }
                 
-                // 5000자 초과 시 분할 저장
-                let mainImage = result.base64;
+                // 50,000자 초과 시 2개 셀에 분할 저장
+                let mainImage = compressedBase64;
                 let extraImage = '';
                 
-                if (result.base64.length > 5000) {
-                    mainImage = result.base64.substring(0, 5000);
-                    extraImage = result.base64.substring(5000);
-                    console.log(`✂️ 이미지 분할: ${result.base64.length}자 → ${mainImage.length}자 + ${extraImage.length}자`);
+                if (finalSize > 50000) {
+                    mainImage = compressedBase64.substring(0, 50000);
+                    extraImage = compressedBase64.substring(50000);
+                    console.log(`✂️ 이미지 분할: ${finalSize}자 → ${mainImage.length}자 + ${extraImage.length}자`);
+                    console.log(`📊 분할 저장: 첫 번째 셀 ${Math.round(getBase64Size(mainImage) / 1024)}KB, 두 번째 셀 ${Math.round(getBase64Size(extraImage) / 1024)}KB`);
             } else {
-                    console.log(`✅ 이미지 최적화 완료: ${result.base64.length}자 (${sizeKB}KB)`);
+                    console.log(`✅ 이미지 최적화 완료: ${finalSize}자 (${finalSizeKB}KB) - 단일 셀 저장`);
                 }
                 
                 setProductForm(prev => ({
@@ -705,6 +1209,7 @@ export default function Manager() {
             setProductForm(prev => ({
                 ...prev,
                 productImage: '',
+                productImageExtra: '',
                 mainImage: null,
             }));
         }
@@ -730,18 +1235,140 @@ export default function Manager() {
         }
     }, []);
 
+    // Support 자료 목록 불러오기
+    const fetchSupportItems = async () => {
+        setSupportLoading(true);
+        try {
+            const { token } = managerStorage.get();
+            if (!token) {
+                throw new Error('로그인이 필요합니다. 다시 로그인해주세요.');
+            }
+
+            const supportData = await readSupportData(token);
+            setSupportItems(supportData);
+        } catch (error) {
+            console.error('Support 자료 데이터 가져오기 오류:', error);
+
+            // 401 오류 체크 및 로그아웃 처리
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+
+            setSupportItems([]);
+        } finally {
+            setSupportLoading(false);
+        }
+    };
+
+    // Support 자료 파일 업로드 핸들러
+    const handleSupportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        
+        if (!file) return;
+        
+        // 파일 크기 체크 (50MB 제한)
+        if (file.size > 50 * 1024 * 1024) {
+            alert('파일 크기는 50MB 이하여야 합니다.');
+            return;
+        }
+        
+        setSupportFileUploading(true);
+        
+        try {
+            const { token } = managerStorage.get();
+            if (!token) {
+                alert('로그인이 필요합니다.');
+                return;
+            }
+
+            // Google Drive에 파일 업로드
+            const result = await uploadToGoogleDrive(file, token, '고객지원_자료');
+            
+            // 파일 ID를 URL로 변환
+            const fileUrl = `https://drive.google.com/file/d/${result.fileId}/view`;
+            
+            setSupportForm(prev => ({
+                ...prev,
+                file: file,
+                fileUrl: result.fileId // 파일 ID 저장 (나중에 URL 변환 가능)
+            }));
+            
+            alert('파일이 업로드되었습니다.');
+        } catch (error) {
+            console.error('파일 업로드 오류:', error);
+            alert('파일 업로드 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
+        } finally {
+            setSupportFileUploading(false);
+        }
+    };
+
+    // Support 자료 저장 핸들러
+    const handleSupportSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!supportForm.title || !supportForm.desc || !supportForm.fileUrl) {
+            alert('제목, 설명, 파일을 모두 입력해주세요.');
+            return;
+        }
+
+        try {
+            const { token } = managerStorage.get();
+            if (!token) {
+                alert('로그인이 필요합니다. 다시 로그인해주세요.');
+                return;
+            }
+
+            setSavingSupport(true);
+
+            const supportData: SupportFormData = {
+                title: supportForm.title,
+                desc: supportForm.desc,
+                fileUrl: supportForm.fileUrl, // Google Drive 파일 ID
+                category: supportForm.category
+            };
+
+            await writeSupportToSheet(token, supportData);
+            
+            alert('고객 지원 자료가 저장되었습니다.');
+            
+            // 폼 초기화
+            setSupportForm({
+                title: '',
+                desc: '',
+                category: '기타',
+                file: null,
+                fileUrl: ''
+            });
+            
+            setShowAddSupport(false);
+            
+            // 목록 새로고침
+            await fetchSupportItems();
+        } catch (error) {
+            console.error('Support 자료 저장 오류:', error);
+            if (checkAndHandle401Error(error)) {
+                return;
+            }
+            alert('저장 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
+        } finally {
+            setSavingSupport(false);
+        }
+    };
+
     // 제품 관리 페이지 진입 시 제품 목록 불러오기
     useEffect(() => {
         if (currentView === 'products') {
             fetchProducts();
         } else if (currentView === 'portfolio') {
             fetchPortfolioItems();
+        } else if (currentView === 'support') {
+            fetchSupportItems();
         }
     }, [currentView]);
 
     return (
         <div className="min-h-screen bg-slate-900">
-            <div className="flex justify-center items-center h-screen pt-24">
+            <div className="flex justify-center items-start h-screen pt-24">
                 <div className="w-full max-w-4xl px-4">
                 {!isLoggedIn ? (
                     // 로그인 폼
@@ -792,6 +1419,14 @@ export default function Manager() {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <button
+                                        onClick={() => setCurrentView('support')}
+                                className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
+                                                    >
+                                <h3 className="text-2xl font-semibold text-white mb-2">고객 지원 자료 관리</h3>
+                                <p className="text-gray-300">고객 지원 자료를 업로드하고 관리할 수 있습니다</p>
+                                                    </button>
+                                    
                             <button 
                                 onClick={() => setCurrentView('portfolio')}
                                 className="bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 rounded-xl p-8 transition-all duration-300 hover:scale-105"
@@ -820,8 +1455,10 @@ export default function Manager() {
                     </div>
                 ) : currentView === 'portfolio' ? (
                     // 시공사례 관리 화면
-                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
-                        <div className="mb-8 flex justify-between items-center">
+                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-w-6xl w-full max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                        {/* 상단 고정 헤더 */}
+                        <div className="sticky top-0 z-20 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm -m-6 p-6 mb-6 border-b border-slate-700/50 flex-shrink-0">
+                            <div className="flex justify-between items-center">
                             <h2 className="text-3xl font-bold text-white">시공사례 관리</h2>
                             <div className="space-x-4">
                                 <button
@@ -839,79 +1476,128 @@ export default function Manager() {
                             </div>
                         </div>
                         
+                            {/* 시공사례 목록 헤더 */}
+                            <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-700/50">
+                                <h3 className="text-xl font-semibold text-white">등록된 시공사례 목록</h3>
+                                {portfolioItems.length > 0 && (
+                                    <span className="text-sm text-gray-400 bg-slate-700/50 px-3 py-1 rounded-full">
+                                        총 {portfolioItems.length}개
+                                    </span>
+                                )}
+                            </div>
+                            </div>
+                        
                         {/* 시공사례 목록 */}
-                        <div className="mb-6">
-                            <h3 className="text-xl font-semibold text-white mb-4">등록된 시공사례 목록</h3>
+                        <div className="flex-1 overflow-hidden flex flex-col">
                             
-                            {portfolioLoading ? (
-                                <div className="text-center py-8">
-                                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                    <p className="text-gray-300 mt-2">로딩 중...</p>
-                                </div>
-                            ) : portfolioItems.length === 0 ? (
-                                <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                                    <p className="text-gray-400 mb-4">등록된 시공사례가 없습니다</p>
-                                    <button
-                                        onClick={() => setShowAddPortfolio(true)}
-                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
-                                    >
-                                        첫 번째 시공사례 추가하기
-                                    </button>
-                    </div>
-                ) : (
-                                <div className="space-y-3">
-                                    {portfolioItems.map((item) => (
-                                        <div key={item.id} className="bg-slate-700/50 rounded-lg border border-slate-600/50 hover:bg-slate-700/70 transition-colors duration-200">
-                                            <div className="flex items-start p-4">
-                                                {/* 시공사례 정보 */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-start justify-between">
-                                                        <div className="flex-1">
-                                                            <h4 className="text-lg font-semibold text-white mb-1">{item.title}</h4>
-                                                            <div className="flex items-center space-x-4 text-sm text-gray-400 mb-2">
-                                                                <span className="text-blue-300">📍 {item.location}</span>
-                                                                <span>📅 {item.date}</span>
-                                                            </div>
-                                                            <p className="text-sm text-gray-300 mb-2 line-clamp-2">
-                                                                {item.description}
-                                                            </p>
-                                                            {item.equipment && (
-                                                                <p className="text-xs text-gray-400">
-                                                                    <span className="text-gray-500">장비:</span> {item.equipment}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex space-x-2 ml-4">
-                                                            <button className="text-gray-400 hover:text-yellow-400 transition-colors p-1">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                </svg>
-                                                            </button>
-                                                            <button className="text-gray-400 hover:text-red-400 transition-colors p-1">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                            {/* 페이지네이션 정보 */}
+                            {portfolioItems.length > portfolioItemsPerPage && (
+                                <div className="flex justify-between items-center mb-4 text-sm text-gray-400 flex-shrink-0">
+                                    <span>
+                                        {((currentPortfolioPage - 1) * portfolioItemsPerPage) + 1} - {Math.min(currentPortfolioPage * portfolioItemsPerPage, portfolioItems.length)} / {portfolioItems.length}개 표시
+                                    </span>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => setCurrentPortfolioPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentPortfolioPage === 1}
+                                            className="px-3 py-1 bg-slate-700/50 hover:bg-slate-700 disabled:bg-slate-800/30 disabled:text-gray-600 text-white rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+                                        >
+                                            이전
+                                        </button>
+                                        <span className="px-3 py-1 bg-slate-700/50 rounded-lg">
+                                            {currentPortfolioPage} / {Math.ceil(portfolioItems.length / portfolioItemsPerPage)}
+                                        </span>
+                                        <button
+                                            onClick={() => setCurrentPortfolioPage(prev => Math.min(Math.ceil(portfolioItems.length / portfolioItemsPerPage), prev + 1))}
+                                            disabled={currentPortfolioPage === Math.ceil(portfolioItems.length / portfolioItemsPerPage)}
+                                            className="px-3 py-1 bg-slate-700/50 hover:bg-slate-700 disabled:bg-slate-800/30 disabled:text-gray-600 text-white rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+                                        >
+                                            다음
+                                        </button>
+                                    </div>
                                 </div>
                             )}
+                            
+                            <div className="flex-1 overflow-hidden">
+                                {portfolioLoading ? (
+                                    <div className="text-center py-8 h-full flex items-center justify-center">
+                                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                        <p className="text-gray-300 mt-2">로딩 중...</p>
+                                    </div>
+                                ) : portfolioItems.length === 0 ? (
+                                    <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50 h-full flex flex-col items-center justify-center">
+                                        <p className="text-gray-400 mb-4">등록된 시공사례가 없습니다</p>
+                                        <button
+                                            onClick={() => setShowAddPortfolio(true)}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                        >
+                                            첫 번째 시공사례 추가하기
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-800/20 rounded-lg border border-slate-600/30 overflow-hidden h-full">
+                                        <div className="h-full overflow-y-auto custom-scrollbar">
+                                            <table className="w-full">
+                                                <thead className="bg-slate-700/50 sticky top-0 z-10">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">제목</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">위치</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">날짜</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">설명</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">장비</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                            {portfolioItems
+                                                .slice(
+                                                    (currentPortfolioPage - 1) * portfolioItemsPerPage,
+                                                    currentPortfolioPage * portfolioItemsPerPage
+                                                )
+                                                .map((item) => (
+                                                        <tr 
+                                                            key={item.id} 
+                                                            onClick={() => {
+                                                                setSelectedPortfolio(item);
+                                                                setShowPortfolioDetail(true);
+                                                            }}
+                                                            className="bg-slate-700/30 hover:bg-slate-700/50 cursor-pointer transition-colors duration-200 border-b border-slate-600/30"
+                                                        >
+                                                            <td className="px-4 py-3 text-sm text-white font-medium">
+                                                                {item.title || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-300">
+                                                                {item.location || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-300">
+                                                                {item.date || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-400 max-w-xs truncate">
+                                                                {item.description || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-sm text-gray-400 max-w-xs truncate">
+                                                                {item.equipment || '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ) : currentView === 'products' ? (
                     // 제품 관리 화면
-                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-8 max-w-6xl w-full">
-                                <div className="mb-8 flex justify-between items-center">
+                    <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-w-6xl w-full max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                        {/* 상단 고정 헤더 */}
+                        <div className="sticky top-0 z-20 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm -m-6 p-6 mb-6 border-b border-slate-700/50 flex-shrink-0">
+                            <div className="flex justify-between items-center">
                                     <h2 className="text-3xl font-bold text-white">제품 관리</h2>
                             <div className="space-x-4">
                                         <button
                                             onClick={() => setShowAddProduct(true)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
                                         >
                                     새 제품 추가
                                         </button>
@@ -921,233 +1607,123 @@ export default function Manager() {
                                         >
                                     메뉴로 돌아가기
                                         </button>
+                                </div>
                                     </div>
                                 </div>
 
-                        {/* 스프레드시트 관리 섹션 */}
-                        <div className="mb-8 bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
-                            <h3 className="text-xl font-bold text-white mb-4">구글 스프레드시트 연동</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                <button
-                                    onClick={loadSpreadsheetData}
-                                    disabled={spreadsheetLoading}
-                                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                >
-                                    {spreadsheetLoading ? (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                        </svg>
-                                    )}
-                                    <span>스프레드시트 데이터 로드</span>
-                                </button>
-                                
-                                <button
-                                    onClick={saveProductsToSpreadsheet}
-                                    disabled={spreadsheetLoading}
-                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                >
-                                    {spreadsheetLoading ? (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                        </svg>
-                                    )}
-                                    <span>제품 데이터 저장</span>
-                                </button>
-                                
-                                <button
-                                    onClick={initializeSpreadsheetData}
-                                    disabled={spreadsheetLoading}
-                                    className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                >
-                                    {spreadsheetLoading ? (
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    )}
-                                    <span>스프레드시트 초기화</span>
-                                </button>
-                </div>
+                        {/* 제품 목록 헤더 */}
+                        <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-700/50">
+                            <h3 className="text-xl font-semibold text-white">등록된 제품 목록</h3>
+                            {products.length > 0 && (
+                                <span className="text-sm text-gray-400 bg-slate-700/50 px-3 py-1 rounded-full">
+                                    총 {products.length}개
+                                </span>
+                            )}
+                        </div>
+                        
+                        {/* 제품 목록 */}
+                        <div className="flex-1 overflow-hidden flex flex-col">
                             
-                            {/* 스프레드시트 링크 */}
-                            <div className="mb-4">
-                                <p className="text-sm text-gray-400 mb-2">스프레드시트 링크:</p>
-                                <a 
-                                    href={`https://docs.google.com/spreadsheets/d/${process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo'}/edit`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:text-blue-300 underline text-sm break-all"
-                                >
-                                    {`https://docs.google.com/spreadsheets/d/${process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo'}/edit`}
-                                </a>
-            </div>
-
-                            {/* 에러 메시지 */}
-                            {spreadsheetError && (
-                                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
-                                    <div className="flex items-start space-x-3">
-                                        <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                        </svg>
-                                        <div className="flex-1">
-                                            <p className="text-red-300 text-sm font-medium mb-2">스프레드시트 오류</p>
-                                            <p className="text-red-300 text-sm mb-3">{spreadsheetError}</p>
-                                            {spreadsheetError.includes('403') && (
-                                                <div className="bg-red-800/20 rounded p-3">
-                                                    <p className="text-red-200 text-xs font-medium mb-2">해결 방법:</p>
-                                                    <ol className="text-red-200 text-xs space-y-1 list-decimal list-inside">
-                                                        <li>Google Cloud Console에서 Google Sheets API 활성화</li>
-                                                        <li>OAuth 동의 화면에 스코프 추가</li>
-                                                        <li>OAuth 2.0 클라이언트 ID 재생성</li>
-                                                        <li>스프레드시트 공유 권한 확인</li>
-                                                        <li>개발 서버 재시작</li>
-                                                    </ol>
-                                                    <a 
-                                                        href="https://console.cloud.google.com/apis/library/sheets.googleapis.com"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-blue-300 hover:text-blue-200 underline text-xs mt-2 inline-block"
-                                                    >
-                                                        Google Sheets API 활성화 →
-                                                    </a>
-                                                </div>
-                                            )}
-                                        </div>
+                            {/* 페이지네이션 정보 */}
+                            {products.length > productItemsPerPage && (
+                                <div className="flex justify-between items-center mb-4 text-sm text-gray-400 flex-shrink-0">
+                                    <span>
+                                        {((currentProductPage - 1) * productItemsPerPage) + 1} - {Math.min(currentProductPage * productItemsPerPage, products.length)} / {products.length}개 표시
+                                    </span>
+                                    <div className="flex space-x-2">
+                                <button
+                                            onClick={() => setCurrentProductPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentProductPage === 1}
+                                            className="px-3 py-1 bg-slate-700/50 hover:bg-slate-700 disabled:bg-slate-800/30 disabled:text-gray-600 text-white rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+                                        >
+                                            이전
+                                </button>
+                                        <span className="px-3 py-1 bg-slate-700/50 rounded-lg">
+                                            {currentProductPage} / {Math.ceil(products.length / productItemsPerPage)}
+                                        </span>
+                                <button
+                                            onClick={() => setCurrentProductPage(prev => Math.min(Math.ceil(products.length / productItemsPerPage), prev + 1))}
+                                            disabled={currentProductPage === Math.ceil(products.length / productItemsPerPage)}
+                                            className="px-3 py-1 bg-slate-700/50 hover:bg-slate-700 disabled:bg-slate-800/30 disabled:text-gray-600 text-white rounded-lg transition-colors duration-200 disabled:cursor-not-allowed"
+                                        >
+                                            다음
+                                </button>
                                     </div>
                                 </div>
                             )}
-
-                            {/* 스프레드시트 데이터 미리보기 */}
-                            {spreadsheetData.length > 0 && (
-                                <div className="mt-4">
-                                    <h4 className="text-lg font-semibold text-white mb-3">스프레드시트 데이터 ({spreadsheetData.length}개 제품)</h4>
-                                    <div className="bg-slate-900/50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                                        <div className="space-y-2">
-                                            {spreadsheetData.map((product, index) => (
-                                                <div key={product.id} className="bg-slate-800/50 rounded p-3">
-                                                    <div className="flex justify-between items-start">
-                            <div>
-                                                            <h5 className="text-white font-medium">{product.model}</h5>
-                                                            <p className="text-gray-400 text-sm">{product.kind}</p>
-                                                        </div>
-                                                        <span className="text-xs text-gray-500">#{index + 1}</span>
-                                                    </div>
-                                                    {product.description && (
-                                                        <p className="text-gray-300 text-sm mt-1 line-clamp-2">{product.description}</p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                                </div>
-
-                                {/* 제품 목록 */}
-                        <div className="mb-6">
-                                    <h3 className="text-xl font-semibold text-white mb-4">등록된 제품 목록</h3>
                                     
-                                    {loading ? (
-                                        <div className="text-center py-8">
-                                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                                    <p className="text-gray-300 mt-2">로딩 중...</p>
-                                        </div>
-                                    ) : products.length === 0 ? (
-                                <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50">
-                                    <p className="text-gray-400 mb-4">등록된 제품이 없습니다</p>
-                                            <button
-                                                onClick={() => setShowAddProduct(true)}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
-                                            >
-                                                첫 번째 제품 추가하기
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {products.map((product) => (
-                                                <div key={product.id} className="bg-slate-700/50 rounded-lg border border-slate-600/50 hover:bg-slate-700/70 transition-colors duration-200">
-                                                    <div className="flex items-center p-4">
-                                                        {/* 제품 이미지 - 심플하게 */}
-                                                        <div className="flex-shrink-0 mr-4">
-                                                            {product.mainImage && (
-                                                                <div className="w-16 h-16 bg-slate-600/50 rounded-lg flex items-center justify-center">
-                                                                    <img
-                                                                        src={product.mainImage}
-                                                                        alt={product.alt}
-                                                                        className="w-12 h-12 object-contain"
-                                                                    />
+                                    <div className="flex-1 overflow-hidden">
+                                {productLoading ? (
+                                            <div className="text-center py-8 h-full flex items-center justify-center">
+                                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                                <p className="text-gray-300 mt-2">로딩 중...</p>
+                                            </div>
+                                        ) : products.length === 0 ? (
+                                            <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50 h-full flex flex-col items-center justify-center">
+                                                <p className="text-gray-400 mb-4">등록된 제품이 없습니다</p>
+                                                <button
+                                                    onClick={() => setShowAddProduct(true)}
+                                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                                >
+                                                    첫 번째 제품 추가하기
+                                                </button>
+                                            </div>
+                                        ) : (
+                                    <div className="bg-slate-800/20 rounded-lg border border-slate-600/30 overflow-hidden h-full">
+                                        <div className="h-full overflow-y-auto custom-scrollbar">
+                                            <table className="w-full">
+                                                <thead className="bg-slate-700/50 sticky top-0 z-10">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">모델명</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">제품종류</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">설명</th>
+                                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-300 border-b border-slate-600">사양</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {products
+                                                        .slice(
+                                                            (currentProductPage - 1) * productItemsPerPage,
+                                                            currentProductPage * productItemsPerPage
+                                                        )
+                                                        .map((item) => (
+                                                            <tr 
+                                                                key={item.id} 
+                                                                onClick={() => {
+                                                                    console.log('🔍 제품 상세 열기:', {
+                                                                        productId: item.id,
+                                                                        productName: item.productName,
+                                                                        productImageUrl: item.productImageUrl ? `${item.productImageUrl.substring(0, 60)}...` : '없음',
+                                                                        productImageLength: item.productImage?.length || 0,
+                                                                        productImageExtraLength: item.productImageExtra?.length || 0,
+                                                                        hasProductImageUrl: !!item.productImageUrl
+                                                                    });
+                                                                    setSelectedProduct(item);
+                                                                    setShowProductDetail(true);
+                                                                    setProductImageError(false);
+                                                                }}
+                                                                className="bg-slate-700/30 hover:bg-slate-700/50 cursor-pointer transition-colors duration-200 border-b border-slate-600/30"
+                                                            >
+                                                                <td className="px-4 py-3 text-sm text-white font-medium">
+                                                                    {item.productName || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-sm text-gray-300">
+                                                                    {item.category || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-sm text-gray-400 max-w-xs truncate">
+                                                                    {item.description || '-'}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-sm text-gray-400 max-w-xs truncate">
+                                                                    {item.specification || '-'}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                </tbody>
+                                            </table>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        {/* 제품 정보 */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center justify-between">
-                                                                <div>
-                                                                    <h4 className="text-lg font-semibold text-white truncate">{product.model}</h4>
-                                                                    <p className="text-sm text-blue-300">{product.kind}</p>
-                                                                </div>
-                                                                <div className="flex space-x-2 ml-4">
-                                                                    <button className="text-gray-400 hover:text-yellow-400 transition-colors p-1">
-                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                                        </svg>
-                                                                    </button>
-                                                                    <button className="text-gray-400 hover:text-red-400 transition-colors p-1">
-                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                        </svg>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {/* 제품 설명 */}
-                                                            <p className="text-sm text-gray-300 mt-2 line-clamp-2">
-                                                                {product.description}
-                                                            </p>
-                                                            
-                                                            {/* 사양 정보 (있는 경우만) */}
-                                                            {product.spec && (
-                                                                <div className="mt-2 text-xs text-gray-400">
-                                                                    <div className="space-y-1">
-                                                                        {product.spec.split('\n').slice(0, 3).map((line: string, index: number) => {
-                                                                            if (!line.trim()) return null;
-                                                                            const colonIndex = line.indexOf(':');
-                                                                            if (colonIndex === -1) return null;
-                                                                            
-                                                                            const key = line.substring(0, colonIndex).trim();
-                                                                            const value = line.substring(colonIndex + 1).trim();
-                                                                            
-                                                                            return (
-                                                                                <div key={index} className="flex">
-                                                                                    <span className="text-gray-500 font-medium min-w-0 flex-shrink-0 mr-2">
-                                                                                        {key}:
-                                                                                    </span>
-                                                                                    <span className="text-gray-300 truncate">
-                                                                                        {value}
-                                                                                    </span>
-                                                                                </div>
-                                                                            );
-                                                                        }).filter(Boolean)}
-                                                                        {product.spec.split('\n').length > 3 && (
-                                                                            <div className="text-gray-500 text-xs">
-                                                                                ... 외 {product.spec.split('\n').length - 3}개 항목
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                 ) : null}
@@ -1232,9 +1808,14 @@ export default function Manager() {
                                             />
                                     
                                     {imageUploading && (
-                                        <div className="mt-2 flex items-center space-x-2">
+                                        <div className="mt-2 space-y-2">
+                                            <div className="flex items-center space-x-2">
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                            <span className="text-sm text-gray-400">이미지 처리 중...</span>
+                                                <span className="text-sm text-gray-400">이미지 압축 중...</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 ml-6">
+                                                최적화를 위해 이미지를 압축하고 있습니다. 잠시만 기다려주세요.
+                                            </p>
                                             </div>
                                         )}
 
@@ -1329,23 +1910,33 @@ export default function Manager() {
                                                 return;
                                             }
 
-                                            // Google Form에 제출할 데이터 준비
-                                            const formData: NewProductForm = {
+                                            // OAuth 토큰 가져오기
+                                            const { token } = managerStorage.get();
+                                            if (!token) {
+                                                alert('인증이 필요합니다. 다시 로그인해주세요.');
+                                                return;
+                                            }
+
+                                            console.log('📤 제품 저장 데이터:', {
+                                                productName: productForm.productName,
+                                                category: productForm.category,
+                                                description: productForm.description,
+                                                specification: productForm.specification,
+                                                productImageLength: productForm.productImage.length,
+                                                productImageExtraLength: productForm.productImageExtra?.length || 0
+                                            });
+
+                                            // Google Sheets API로 직접 저장 (분할 이미지 그대로 전달)
+                                            await writeProductToSheet(token, {
                                                 productName: productForm.productName.trim(),
                                                 category: productForm.category.trim(),
                                                 description: productForm.description.trim(),
-                                                productImage: productForm.productImage || productForm.mainImage?.name || '',
-                                                productImageExtra: productForm.productImageExtra || '',
                                                 specification: productForm.specification.trim(),
-                                            };
-
-                                            console.log('Google Form에 제출할 데이터:', formData);
-
-                                            // Google Form에 제출
-                                            const result = await submitProductToGoogleForm(formData);
+                                                productImage: productForm.productImage,
+                                                productImageExtra: productForm.productImageExtra || '',
+                                            }, process.env.REACT_APP_PRODUCTS_SPREADSHEET_ID || '1p8P_4ymeoSof5ExXClamxYwtvOtDK9Q1Sw4gSawu9uo', 'productList');
                                             
-                                            if (result.ok) {
-                                                alert(result.message);
+                                            alert('제품이 성공적으로 저장되었습니다!');
                                                 setShowAddProduct(false);
                                                 
                                                 // 폼 초기화
@@ -1358,13 +1949,17 @@ export default function Manager() {
                                                     productImageExtra: '',
                                                     mainImage: null,
                                                 });
-                                            } else {
-                                                alert(`제출 실패: ${result.message}`);
-                                            }
                                             
                                         } catch (error) {
-                                            console.error('Google Form 제출 오류:', error);
-                                            alert('제품 제출 중 오류가 발생했습니다. 다시 시도해주세요.');
+                                            console.error('제품 저장 오류:', error);
+                                            
+                                            // 401 오류 체크 및 로그아웃 처리
+                                            if (checkAndHandle401Error(error)) {
+                                                return;
+                                            }
+                                            
+                                            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+                                            alert(`제품 저장 중 오류가 발생했습니다: ${errorMessage}`);
                                         }
                                     }}
                                 >
@@ -1483,7 +2078,7 @@ export default function Manager() {
                                         disabled={portfolioImageUploading}
                                         className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50"
                                     />
-                                <p className="text-sm text-gray-400 mt-1">대표 이미지를 선택하세요. (최대 5MB, 자동으로 5000자 이하로 압축됩니다)</p>
+                                <p className="text-sm text-gray-400 mt-1">대표 이미지를 선택하세요. (최대 5MB, 16000자까지, 8000자 초과 시에만 분할 저장)</p>
                                 
                                     {portfolioImageUploading && (
                                         <div className="mt-2 flex items-center space-x-2">
@@ -1558,8 +2153,15 @@ export default function Manager() {
                                                 <div>
                                                     <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[0].name}</p>
                                                     <p className="text-xs text-green-400">
-                                                        ✅ {uploadForm.detailImage1.length}자
-                                                        {uploadForm.detailImageExtra1 && ` + ${uploadForm.detailImageExtra1.length}자`}
+                                                        ✅ 첫 번째 부분: {uploadForm.detailImage1.length}자
+                                                    </p>
+                                                    {uploadForm.detailImageExtra1 && (
+                                                        <p className="text-xs text-blue-400">
+                                                            ➕ 추가 부분: {uploadForm.detailImageExtra1.length}자
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs text-gray-500">
+                                                        📊 총 크기: {uploadForm.detailImage1.length + (uploadForm.detailImageExtra1?.length || 0)}자
                                                     </p>
                                 </div>
                                                 <button 
@@ -1598,8 +2200,15 @@ export default function Manager() {
                                                 <div>
                                                     <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[1].name}</p>
                                                     <p className="text-xs text-green-400">
-                                                        ✅ {uploadForm.detailImage2.length}자
-                                                        {uploadForm.detailImageExtra2 && ` + ${uploadForm.detailImageExtra2.length}자`}
+                                                        ✅ 첫 번째 부분: {uploadForm.detailImage2.length}자
+                                                    </p>
+                                                    {uploadForm.detailImageExtra2 && (
+                                                        <p className="text-xs text-blue-400">
+                                                            ➕ 추가 부분: {uploadForm.detailImageExtra2.length}자
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs text-gray-500">
+                                                        📊 총 크기: {uploadForm.detailImage2.length + (uploadForm.detailImageExtra2?.length || 0)}자
                                                     </p>
                                                 </div>
                                                     <button
@@ -1617,7 +2226,7 @@ export default function Manager() {
                                             />
                                         </div>
                                     )}
-                                </div>
+                                    </div>
 
                                 {/* 상세 이미지 3 */}
                                 <div className="border border-slate-600/50 rounded-lg p-4 bg-slate-800/30">
@@ -1638,8 +2247,15 @@ export default function Manager() {
                                                 <div>
                                                     <p className="text-xs text-gray-400">{uploadForm.detailImageFiles[2].name}</p>
                                                     <p className="text-xs text-green-400">
-                                                        ✅ {uploadForm.detailImage3.length}자
-                                                        {uploadForm.detailImageExtra3 && ` + ${uploadForm.detailImageExtra3.length}자`}
+                                                        ✅ 첫 번째 부분: {uploadForm.detailImage3.length}자
+                                                    </p>
+                                                    {uploadForm.detailImageExtra3 && (
+                                                        <p className="text-xs text-blue-400">
+                                                            ➕ 추가 부분: {uploadForm.detailImageExtra3.length}자
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs text-gray-500">
+                                                        📊 총 크기: {uploadForm.detailImage3.length + (uploadForm.detailImageExtra3?.length || 0)}자
                                                     </p>
                                                 </div>
                                                 <button 
@@ -1679,6 +2295,1064 @@ export default function Manager() {
                     </div>
                 </div>
             </div>
+            )}
+
+            {/* 시공사례 상세 보기 모달 */}
+            {showPortfolioDetail && selectedPortfolio && (
+                <div className="fixed inset-0 z-50">
+                    <div 
+                        className="absolute inset-0 bg-black/70" 
+                        onClick={() => {
+                            if (isEditingPortfolio) {
+                                if (window.confirm('편집 중인 내용이 저장되지 않습니다. 정말 닫으시겠습니까?')) {
+                                    setShowPortfolioDetail(false);
+                                    setSelectedPortfolio(null);
+                                    setIsEditingPortfolio(false);
+                                    setEditingPortfolioData(null);
+                                }
+                            } else {
+                                setShowPortfolioDetail(false);
+                                setSelectedPortfolio(null);
+                            }
+                        }}
+                    />
+                    <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto pt-8">
+                        <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl my-4">
+                            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                                <h3 className="text-2xl font-bold text-white">시공사례 상세</h3>
+                                <div className="flex items-center gap-3">
+                                    {!isEditingPortfolio && (
+                                        <button
+                                            onClick={handleStartEdit}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                                        >
+                                            수정
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (isEditingPortfolio) {
+                                                if (window.confirm('편집 중인 내용이 저장되지 않습니다. 정말 닫으시겠습니까?')) {
+                                                    setShowPortfolioDetail(false);
+                                                    setSelectedPortfolio(null);
+                                                    setIsEditingPortfolio(false);
+                                                    setEditingPortfolioData(null);
+                                                }
+                                            } else {
+                                                setShowPortfolioDetail(false);
+                                                setSelectedPortfolio(null);
+                                            }
+                                        }}
+                                        className="text-gray-400 hover:text-white text-lg font-medium px-3 py-1 rounded transition-colors"
+                                    >
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="p-6 space-y-6">
+                                {/* 기본 정보 */}
+                                <div className="space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">제목</label>
+                                            {isEditingPortfolio ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingPortfolioData?.title || ''}
+                                                    onChange={(e) => setEditingPortfolioData({...editingPortfolioData, title: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedPortfolio.title || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">위치</label>
+                                            {isEditingPortfolio ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingPortfolioData?.location || ''}
+                                                    onChange={(e) => setEditingPortfolioData({...editingPortfolioData, location: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedPortfolio.location || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">설치 날짜</label>
+                                            {isEditingPortfolio ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingPortfolioData?.date || ''}
+                                                    onChange={(e) => setEditingPortfolioData({...editingPortfolioData, date: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="예: 2025. 1. 15"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedPortfolio.date || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">설명</label>
+                                            {isEditingPortfolio ? (
+                                                <textarea
+                                                    value={editingPortfolioData?.description || ''}
+                                                    onChange={(e) => setEditingPortfolioData({...editingPortfolioData, description: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                                                    rows={4}
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left whitespace-pre-wrap">{selectedPortfolio.description || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">장비</label>
+                                            {isEditingPortfolio ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingPortfolioData?.equipment || ''}
+                                                    onChange={(e) => setEditingPortfolioData({...editingPortfolioData, equipment: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedPortfolio.equipment || '-'}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 메인 이미지 */}
+                                <div>
+                                    <h5 className="text-lg font-semibold text-white mb-3 border-b border-slate-700 pb-3 text-left">대표 이미지</h5>
+                                    {isEditingPortfolio ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleEditMainImageChange}
+                                                    disabled={editingImageUploading}
+                                                    className="w-full bg-slate-800 text-white rounded-lg border border-slate-600 px-3 py-2 disabled:opacity-50"
+                                                />
+                                                <div className="mt-2 space-y-1">
+                                                    {editingPortfolioData?.hasOriginalMainImage && !editingPortfolioData?.mainImage && (
+                                                        <div className="bg-blue-900/30 border border-blue-500/50 rounded px-3 py-2">
+                                                            <p className="text-sm text-blue-300 font-medium">기존 이미지 있음</p>
+                                                            <p className="text-xs text-blue-400 mt-1">현재 저장된 대표 이미지가 있습니다. 새 이미지를 선택하면 기존 이미지가 교체됩니다.</p>
+                                                        </div>
+                                                    )}
+                                                    {editingPortfolioData?.mainImage && (
+                                                        <div className="bg-green-900/30 border border-green-500/50 rounded px-3 py-2">
+                                                            <p className="text-sm text-green-300 font-medium">새 이미지 선택됨</p>
+                                                            <p className="text-xs text-green-400 mt-1">저장 시 기존 이미지가 새 이미지로 교체됩니다.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {editingImageUploading && (
+                                                <div className="flex items-center space-x-2 text-sm text-gray-400">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                                    <span>이미지 압축 중...</span>
+                                                </div>
+                                            )}
+                                            {(editingPortfolioData?.mainImage || selectedPortfolio.mainImageUrl) && (
+                                                <div className="relative">
+                                                    <div className="absolute top-2 left-2 z-10">
+                                                        {editingPortfolioData?.mainImage ? (
+                                                            <span className="bg-green-600 text-white text-xs font-medium px-2 py-1 rounded">새 이미지</span>
+                                                        ) : editingPortfolioData?.hasOriginalMainImage ? (
+                                                            <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded">기존 이미지</span>
+                                                        ) : null}
+                                                    </div>
+                                                    <img 
+                                                        src={editingPortfolioData?.mainImage 
+                                                            ? decodeBase64Image(editingPortfolioData.mainImage + (editingPortfolioData.mainImageExtra || ''))
+                                                            : selectedPortfolio.mainImageUrl
+                                                        } 
+                                                        alt={selectedPortfolio.title || '대표 이미지'}
+                                                        className="max-w-full max-h-96 object-contain rounded-lg border border-slate-600 shadow-lg"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.style.display = 'none';
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        selectedPortfolio.mainImageUrl ? (
+                                            <div className="flex justify-start">
+                                                <img 
+                                                    src={selectedPortfolio.mainImageUrl} 
+                                                    alt={selectedPortfolio.title || '대표 이미지'}
+                                                    className="max-w-full max-h-96 object-contain rounded-lg border border-slate-600 shadow-lg"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                        const parent = target.parentElement;
+                                                        if (parent) {
+                                                            parent.innerHTML = '<p class="text-gray-400 text-center py-8">이미지를 불러올 수 없습니다.</p>';
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 bg-slate-800/50 rounded-lg border border-slate-600">
+                                                <p className="text-gray-400">대표 이미지가 없습니다.</p>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+
+                                {/* 상세 이미지 갤러리 */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-3">
+                                        <h5 className="text-lg font-semibold text-white">상세 이미지</h5>
+                                        {!isEditingPortfolio && selectedPortfolio.detailImageUrls && selectedPortfolio.detailImageUrls.length > 0 && (
+                                            <span className="text-sm text-gray-400">총 {selectedPortfolio.detailImageUrls.length}개</span>
+                                        )}
+                                    </div>
+                                    {isEditingPortfolio ? (
+                                        <div className="space-y-4">
+                                            {[0, 1, 2].map((index) => {
+                                                const detailImage = editingPortfolioData?.[`detailImage${index + 1}` as keyof typeof editingPortfolioData] as string || '';
+                                                const detailImageExtra = editingPortfolioData?.[`detailImageExtra${index + 1}` as keyof typeof editingPortfolioData] as string || '';
+                                                const imageUrl = detailImage ? decodeBase64Image(detailImage + detailImageExtra) : null;
+                                                const originalImageUrl = selectedPortfolio.detailImageUrls?.[index];
+                                                const hasOriginalImage = !!originalImageUrl;
+                                                const hasNewImage = !!detailImage;
+                                                
+                                                return (
+                                                    <div key={index} className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-300">상세 이미지 {index + 1}</label>
+                                                        <div>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={(e) => handleEditDetailImageChange(e, index)}
+                                                                disabled={editingImageUploading}
+                                                                className="w-full bg-slate-800 text-white rounded-lg border border-slate-600 px-3 py-2 disabled:opacity-50"
+                                                            />
+                                                            <div className="mt-2 space-y-1">
+                                                                {hasOriginalImage && !hasNewImage && (
+                                                                    <div className="bg-blue-900/30 border border-blue-500/50 rounded px-3 py-2">
+                                                                        <p className="text-sm text-blue-300 font-medium">기존 이미지 있음</p>
+                                                                        <p className="text-xs text-blue-400 mt-1">현재 저장된 상세 이미지 {index + 1}가 있습니다. 새 이미지를 선택하면 기존 이미지가 교체됩니다.</p>
+                                                                    </div>
+                                                                )}
+                                                                {hasNewImage && (
+                                                                    <div className="bg-green-900/30 border border-green-500/50 rounded px-3 py-2">
+                                                                        <p className="text-sm text-green-300 font-medium">새 이미지 선택됨</p>
+                                                                        <p className="text-xs text-green-400 mt-1">저장 시 기존 이미지가 새 이미지로 교체됩니다.</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {(imageUrl || originalImageUrl) && (
+                                                            <div className="relative flex justify-start">
+                                                                <div className="relative">
+                                                                    <div className="absolute top-2 left-2 z-10">
+                                                                        {hasNewImage ? (
+                                                                            <span className="bg-green-600 text-white text-xs font-medium px-2 py-1 rounded">새 이미지</span>
+                                                                        ) : hasOriginalImage ? (
+                                                                            <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded">기존 이미지</span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                    <img 
+                                                                        src={imageUrl || originalImageUrl || ''} 
+                                                                        alt={`상세 이미지 ${index + 1}`}
+                                                                        className="w-full max-w-md h-48 object-cover rounded-lg border border-slate-600"
+                                                                        onError={(e) => {
+                                                                            const target = e.target as HTMLImageElement;
+                                                                            target.style.display = 'none';
+                                                                        }}
+                                                                    />
+                                                                    {hasNewImage && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setEditingPortfolioData({
+                                                                                    ...editingPortfolioData,
+                                                                                    [`detailImage${index + 1}`]: '',
+                                                                                    [`detailImageExtra${index + 1}`]: ''
+                                                                                });
+                                                                            }}
+                                                                            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm"
+                                                                        >
+                                                                            새 이미지 삭제
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        selectedPortfolio.detailImageUrls && selectedPortfolio.detailImageUrls.length > 0 ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {selectedPortfolio.detailImageUrls.map((imageUrl: string, index: number) => (
+                                                    <div key={index} className="relative group">
+                                                        <img 
+                                                            src={imageUrl} 
+                                                            alt={`${selectedPortfolio.title || '시공사례'} - 상세 ${index + 1}`}
+                                                            className="w-full h-48 object-cover rounded-lg border border-slate-600 hover:opacity-80 transition-opacity cursor-pointer shadow-md"
+                                                            onClick={() => window.open(imageUrl, '_blank')}
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                const parent = target.parentElement;
+                                                                if (parent) {
+                                                                    parent.innerHTML = '<div class="w-full h-48 bg-slate-800/50 rounded-lg border border-slate-600 flex items-center justify-center"><p class="text-gray-500 text-sm">이미지 로드 실패</p></div>';
+                                                                }
+                                                            }}
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                            <span className="text-white text-sm font-medium">클릭하여 확대</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-8 bg-slate-800/50 rounded-lg border border-slate-600">
+                                                <p className="text-gray-400">상세 이미지가 없습니다.</p>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+
+                                {/* 버튼 */}
+                                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+                                    {isEditingPortfolio ? (
+                                        <>
+                                            <button
+                                                onClick={handleCancelEdit}
+                                                disabled={savingPortfolio}
+                                                className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={handleSavePortfolio}
+                                                disabled={savingPortfolio}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {savingPortfolio && (
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                )}
+                                                저장
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                setShowPortfolioDetail(false);
+                                                setSelectedPortfolio(null);
+                                                setIsEditingPortfolio(false);
+                                                setEditingPortfolioData(null);
+                                            }}
+                                            className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors"
+                                        >
+                                            닫기
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+            )}
+
+            {/* Support 자료 관리 화면 */}
+            {currentView === 'support' && (
+                <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-w-6xl w-full max-h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
+                    {/* 상단 고정 헤더 */}
+                    <div className="sticky top-0 z-20 bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-sm -m-6 p-6 mb-6 border-b border-slate-700/50 flex-shrink-0">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-3xl font-bold text-white">고객 지원 자료 관리</h2>
+                            <div className="space-x-4">
+                                <button
+                                    onClick={() => setShowAddSupport(true)}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    자료 추가
+                                </button>
+                                <button
+                                    onClick={() => setCurrentView('menu')}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    메뉴로
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Support 자료 목록 헤더 */}
+                    <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-700/50 flex-shrink-0">
+                        <h3 className="text-xl font-semibold text-white">등록된 자료 목록</h3>
+                        {supportItems.length > 0 && (
+                            <span className="text-sm text-gray-400 bg-slate-700/50 px-3 py-1 rounded-full">
+                                총 {supportItems.length}개
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Support 자료 목록 */}
+                    <div className="flex-1 overflow-y-auto mt-4">
+                        {supportLoading ? (
+                            <div className="text-center py-8 h-full flex items-center justify-center">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                                <p className="text-gray-300 mt-2">로딩 중...</p>
+                            </div>
+                        ) : supportItems.length === 0 ? (
+                            <div className="text-center py-12 bg-slate-700/30 rounded-lg border border-slate-600/50 h-full flex flex-col items-center justify-center">
+                                <p className="text-gray-400 mb-4">등록된 자료가 없습니다</p>
+                                <button
+                                    onClick={() => setShowAddSupport(true)}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200"
+                                >
+                                    첫 자료 추가하기
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-slate-700">
+                                        <thead className="bg-slate-900/50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">번호</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">제목</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">설명</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">카테고리</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">등록일</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">작업</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-slate-800/30 divide-y divide-slate-700">
+                                            {supportItems
+                                                .slice((currentSupportPage - 1) * supportItemsPerPage, currentSupportPage * supportItemsPerPage)
+                                                .map((item) => (
+                                                <tr key={item.id} className="hover:bg-slate-700/50 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{item.id}</td>
+                                                    <td className="px-6 py-4 text-sm text-white font-medium">{item.title}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-400 max-w-xs truncate">{item.desc}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-900 text-blue-200">
+                                                            {item.category || '기타'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.createdAt}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedSupport(item);
+                                                                setShowSupportDetail(true);
+                                                            }}
+                                                            className="text-blue-400 hover:text-blue-300 mr-3"
+                                                        >
+                                                            보기
+                                                        </button>
+                                                        {item.fileUrl && (
+                                                            <a
+                                                                href={`https://drive.google.com/file/d/${item.fileUrl}/view`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-green-400 hover:text-green-300"
+                                                            >
+                                                                파일
+                                                            </a>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* 페이지네이션 */}
+                                {Math.ceil(supportItems.length / supportItemsPerPage) > 1 && (
+                                    <div className="bg-slate-900/50 px-6 py-4 border-t border-slate-700 flex items-center justify-between">
+                                        <div className="text-sm text-gray-400">
+                                            {((currentSupportPage - 1) * supportItemsPerPage) + 1} - {Math.min(currentSupportPage * supportItemsPerPage, supportItems.length)} / {supportItems.length}
+                                        </div>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => setCurrentSupportPage(p => Math.max(1, p - 1))}
+                                                disabled={currentSupportPage === 1}
+                                                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                이전
+                                            </button>
+                                            <button
+                                                onClick={() => setCurrentSupportPage(p => Math.min(Math.ceil(supportItems.length / supportItemsPerPage), p + 1))}
+                                                disabled={currentSupportPage >= Math.ceil(supportItems.length / supportItemsPerPage)}
+                                                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                다음
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* 새 Support 자료 추가 모달 */}
+            {showAddSupport && (
+                <div className="fixed inset-0 z-50">
+                    <div 
+                        className="absolute inset-0 bg-black/70" 
+                        onClick={() => setShowAddSupport(false)}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl">
+                            <div className="flex items-center justify-between p-5 border-b border-slate-700">
+                                <h3 className="text-xl font-bold text-white">새 지원 자료 추가</h3>
+                                <button
+                                    className="text-gray-400 hover:text-white"
+                                    onClick={() => setShowAddSupport(false)}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSupportSubmit} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        제목 <span className="text-red-400">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={supportForm.title}
+                                        onChange={(e) => setSupportForm(prev => ({ ...prev, title: e.target.value }))}
+                                        className="w-full bg-slate-800 text-white border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        설명 <span className="text-red-400">*</span>
+                                    </label>
+                                    <textarea
+                                        value={supportForm.desc}
+                                        onChange={(e) => setSupportForm(prev => ({ ...prev, desc: e.target.value }))}
+                                        className="w-full bg-slate-800 text-white border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        카테고리
+                                    </label>
+                                    <select
+                                        value={supportForm.category}
+                                        onChange={(e) => setSupportForm(prev => ({ ...prev, category: e.target.value }))}
+                                        className="w-full bg-slate-800 text-white border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="학습자료">학습자료</option>
+                                        <option value="기술문서">기술문서</option>
+                                        <option value="튜토리얼">튜토리얼</option>
+                                        <option value="체크리스트">체크리스트</option>
+                                        <option value="기타">기타</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        파일 <span className="text-red-400">*</span>
+                                    </label>
+                                    <input
+                                        type="file"
+                                        onChange={handleSupportFileChange}
+                                        disabled={supportFileUploading}
+                                        className="w-full bg-slate-800 text-white border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                        required
+                                    />
+                                    {supportFileUploading && (
+                                        <p className="mt-2 text-sm text-blue-400">파일 업로드 중...</p>
+                                    )}
+                                    {supportForm.fileUrl && !supportFileUploading && (
+                                        <p className="mt-2 text-sm text-green-400">✓ 파일이 업로드되었습니다.</p>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end space-x-3 pt-4 border-t border-slate-700">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddSupport(false)}
+                                        className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                                    >
+                                        취소
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={savingSupport || supportFileUploading || !supportForm.fileUrl}
+                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {savingSupport && (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        )}
+                                        저장
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Support 자료 상세 보기 모달 */}
+            {showSupportDetail && selectedSupport && (
+                <div className="fixed inset-0 z-50">
+                    <div 
+                        className="absolute inset-0 bg-black/70" 
+                        onClick={() => {
+                            setShowSupportDetail(false);
+                            setSelectedSupport(null);
+                            setIsEditingSupport(false);
+                            setEditingSupportData(null);
+                        }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-center justify-between p-5 border-b border-slate-700 sticky top-0 bg-slate-900 z-10">
+                                <h3 className="text-xl font-bold text-white">자료 상세</h3>
+                                <button
+                                    className="text-gray-400 hover:text-white"
+                                    onClick={() => {
+                                        setShowSupportDetail(false);
+                                        setSelectedSupport(null);
+                                        setIsEditingSupport(false);
+                                        setEditingSupportData(null);
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">제목</label>
+                                    <p className="text-white text-lg">{selectedSupport.title}</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">설명</label>
+                                    <p className="text-white">{selectedSupport.desc}</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">카테고리</label>
+                                    <span className="inline-block px-2 py-1 text-sm font-medium rounded-full bg-blue-900 text-blue-200">
+                                        {selectedSupport.category || '기타'}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">등록일</label>
+                                    <p className="text-white">{selectedSupport.createdAt}</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-1">파일</label>
+                                    {selectedSupport.fileUrl ? (
+                                        <a
+                                            href={`https://drive.google.com/file/d/${selectedSupport.fileUrl}/view`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-400 hover:text-blue-300 underline"
+                                        >
+                                            Google Drive에서 보기
+                                        </a>
+                                    ) : (
+                                        <p className="text-gray-400">파일 없음</p>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end pt-4 border-t border-slate-700">
+                                    <button
+                                        onClick={() => {
+                                            setShowSupportDetail(false);
+                                            setSelectedSupport(null);
+                                            setIsEditingSupport(false);
+                                            setEditingSupportData(null);
+                                        }}
+                                        className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                                    >
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 제품 상세 보기 모달 */}
+            {showProductDetail && selectedProduct && (
+                <div className="fixed inset-0 z-50">
+                    <div 
+                        className="absolute inset-0 bg-black/70" 
+                        onClick={() => {
+                            if (isEditingProduct) {
+                                if (window.confirm('편집 중인 내용이 저장되지 않습니다. 정말 닫으시겠습니까?')) {
+                                    setShowProductDetail(false);
+                                    setSelectedProduct(null);
+                                    setIsEditingProduct(false);
+                                    setEditingProductData(null);
+                                    setProductImageError(false);
+                                }
+                            } else {
+                                setShowProductDetail(false);
+                                setSelectedProduct(null);
+                                setProductImageError(false);
+                            }
+                        }}
+                    />
+                    <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto pt-8">
+                        <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl my-4">
+                            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                                <h3 className="text-2xl font-bold text-white">제품 상세</h3>
+                                <div className="flex items-center gap-3">
+                                    {!isEditingProduct && (
+                                        <button
+                                            onClick={handleStartEditProduct}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                                        >
+                                            수정
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (isEditingProduct) {
+                                                if (window.confirm('편집 중인 내용이 저장되지 않습니다. 정말 닫으시겠습니까?')) {
+                                                    setShowProductDetail(false);
+                                                    setSelectedProduct(null);
+                                                    setIsEditingProduct(false);
+                                                    setEditingProductData(null);
+                                                    setProductImageError(false);
+                                                }
+                                            } else {
+                                                setShowProductDetail(false);
+                                                setSelectedProduct(null);
+                                                setProductImageError(false);
+                                            }
+                                        }}
+                                        className="text-gray-400 hover:text-white text-lg font-medium px-3 py-1 rounded transition-colors"
+                                    >
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="p-6 space-y-6">
+                                {/* 기본 정보 */}
+                                <div className="space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">모델명</label>
+                                            {isEditingProduct ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingProductData?.productName || ''}
+                                                    onChange={(e) => setEditingProductData({...editingProductData, productName: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedProduct.productName || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">제품종류</label>
+                                            {isEditingProduct ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingProductData?.category || ''}
+                                                    onChange={(e) => setEditingProductData({...editingProductData, category: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left">{selectedProduct.category || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">설명</label>
+                                            {isEditingProduct ? (
+                                                <textarea
+                                                    value={editingProductData?.description || ''}
+                                                    onChange={(e) => setEditingProductData({...editingProductData, description: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                                                    rows={4}
+                                                />
+                                            ) : (
+                                                <p className="text-white text-base flex-1 text-left whitespace-pre-wrap">{selectedProduct.description || '-'}</p>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-start">
+                                            <label className="text-sm font-medium text-gray-400 w-24 flex-shrink-0 text-left">사양</label>
+                                            {isEditingProduct ? (
+                                                <textarea
+                                                    value={editingProductData?.specification || ''}
+                                                    onChange={(e) => setEditingProductData({...editingProductData, specification: e.target.value})}
+                                                    className="text-white text-base flex-1 bg-slate-800 border border-slate-600 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                                                    rows={4}
+                                                />
+                                            ) : (
+                                                <div className="flex-1 text-left">
+                                                    {selectedProduct.specification ? (() => {
+                                                        // 쉼표를 기준으로 분리하고 각 항목을 key:value로 파싱
+                                                        const specs = selectedProduct.specification.split(',').map((s: string) => s.trim()).filter((s: string) => s);
+                                                        if (specs.length === 0) {
+                                                            return <p className="text-white text-base">-</p>;
+                                                        }
+                                                        return (
+                                                            <div className="space-y-2">
+                                                                {specs.map((spec: string, index: number) => {
+                                                                    const colonIndex = spec.indexOf(':');
+                                                                    if (colonIndex === -1) {
+                                                                        return (
+                                                                            <div key={index} className="flex items-start">
+                                                                                <span className="text-gray-400 text-sm font-medium w-32 flex-shrink-0 text-left">{spec}</span>
+                                                                                <span className="text-white text-base flex-1">-</span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    const key = spec.substring(0, colonIndex).trim();
+                                                                    const value = spec.substring(colonIndex + 1).trim();
+                                                                    return (
+                                                                        <div key={index} className="flex items-start">
+                                                                            <span className="text-gray-400 text-sm font-medium w-32 flex-shrink-0 text-left">{key}</span>
+                                                                            <span className="text-white text-base flex-1">{value || '-'}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        );
+                                                    })() : (
+                                                        <p className="text-white text-base">-</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 제품 이미지 */}
+                                <div>
+                                    <h5 className="text-lg font-semibold text-white mb-3 border-b border-slate-700 pb-3 text-left">제품 이미지</h5>
+                                    {isEditingProduct ? (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleEditProductImageChange}
+                                                    disabled={editingProductImageUploading}
+                                                    className="w-full bg-slate-800 text-white rounded-lg border border-slate-600 px-3 py-2 disabled:opacity-50"
+                                                />
+                                                <div className="mt-2 space-y-1">
+                                                    {hasOriginalProductImage && !editingProductData?.productImage && (
+                                                        <div className="bg-blue-900/30 border border-blue-500/50 rounded px-3 py-2">
+                                                            <p className="text-sm text-blue-300 font-medium">기존 이미지 있음</p>
+                                                            <p className="text-xs text-blue-400 mt-1">현재 저장된 제품 이미지가 있습니다. 새 이미지를 선택하면 기존 이미지가 교체됩니다.</p>
+                                                        </div>
+                                                    )}
+                                                    {editingProductData?.productImage && (
+                                                        <div className="bg-green-900/30 border border-green-500/50 rounded px-3 py-2">
+                                                            <p className="text-sm text-green-300 font-medium">새 이미지 선택됨</p>
+                                                            <p className="text-xs text-green-400 mt-1">저장 시 기존 이미지가 새 이미지로 교체됩니다.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {editingProductImageUploading && (
+                                                <div className="flex items-center space-x-2 text-sm text-gray-400">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                                    <span>이미지 압축 중...</span>
+                                                </div>
+                                            )}
+                                            {(() => {
+                                                // 편집 모드에서 새 이미지가 있으면 사용
+                                                if (editingProductData?.productImage) {
+                                                    return (
+                                                        <div className="relative">
+                                                            <div className="absolute top-2 left-2 z-10">
+                                                                <span className="bg-green-600 text-white text-xs font-medium px-2 py-1 rounded">새 이미지</span>
+                                                            </div>
+                                                            <img 
+                                                                src={`data:image/jpeg;base64,${editingProductData.productImage}${editingProductData.productImageExtra || ''}`}
+                                                                alt={selectedProduct.productName || '제품 이미지'}
+                                                                className="max-w-full max-h-96 object-contain rounded-lg border border-slate-600 shadow-lg"
+                                                                onError={(e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                // 기존 이미지: productImageUrl이 있으면 사용, 없으면 productImage + productImageExtra 합쳐서 생성
+                                                // productImageUrl이 이미 data:image/jpeg;base64, 접두사를 포함하고 있을 수 있으므로 확인
+                                                let existingImage = selectedProduct.productImageUrl;
+                                                if (!existingImage && (selectedProduct.productImage || selectedProduct.productImageExtra)) {
+                                                    const fullImage = (selectedProduct.productImage || '') + (selectedProduct.productImageExtra || '');
+                                                    if (fullImage) {
+                                                        // productImage/productImageExtra가 이미 data:image 접두사를 포함하고 있는지 확인
+                                                        if (fullImage.startsWith('data:image')) {
+                                                            existingImage = fullImage;
+                                                        } else {
+                                                            existingImage = `data:image/jpeg;base64,${fullImage}`;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if (existingImage) {
+                                                    return (
+                                                        <div className="relative">
+                                                            <div className="absolute top-2 left-2 z-10">
+                                                                {hasOriginalProductImage && (
+                                                                    <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded">기존 이미지</span>
+                                                                )}
+                                                            </div>
+                                                            <img 
+                                                                src={existingImage}
+                                                                alt={selectedProduct.productName || '제품 이미지'}
+                                                                className="max-w-full max-h-96 object-contain rounded-lg border border-slate-600 shadow-lg"
+                                                                onError={(e) => {
+                                                                    const target = e.target as HTMLImageElement;
+                                                                    target.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                }
+                                                
+                                                return null;
+                                            })()}
+                                        </div>
+                                    ) : (
+                                        (() => {
+                                            // productImageUrl이 있으면 사용, 없으면 productImage + productImageExtra 합쳐서 생성
+                                            // productImageUrl이 이미 data:image/jpeg;base64, 접두사를 포함하고 있을 수 있으므로 확인
+                                            let imageUrl = selectedProduct.productImageUrl;
+                                            if (!imageUrl && (selectedProduct.productImage || selectedProduct.productImageExtra)) {
+                                                const fullImage = (selectedProduct.productImage || '') + (selectedProduct.productImageExtra || '');
+                                                if (fullImage) {
+                                                    // productImage/productImageExtra가 이미 data:image 접두사를 포함하고 있는지 확인
+                                                    if (fullImage.startsWith('data:image')) {
+                                                        imageUrl = fullImage;
+                                                    } else {
+                                                        imageUrl = `data:image/jpeg;base64,${fullImage}`;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (imageUrl && !productImageError) {
+                                                return (
+                                                    <div className="flex justify-start">
+                                                        <img 
+                                                            src={imageUrl} 
+                                                            alt={selectedProduct.productName || '제품 이미지'}
+                                                            className="max-w-full max-h-96 object-contain rounded-lg border border-slate-600 shadow-lg"
+                                                            onError={(e) => {
+                                                                console.error('❌ 제품 이미지 로드 실패:', {
+                                                                    productId: selectedProduct.id,
+                                                                    productName: selectedProduct.productName,
+                                                                    productImageUrl: selectedProduct.productImageUrl ? `${selectedProduct.productImageUrl.substring(0, 100)}...` : '없음',
+                                                                    productImageLength: selectedProduct.productImage?.length || 0,
+                                                                    productImageExtraLength: selectedProduct.productImageExtra?.length || 0,
+                                                                    constructedImageUrl: imageUrl ? `${imageUrl.substring(0, 100)}...` : '없음',
+                                                                    error: e
+                                                                });
+                                                                setProductImageError(true);
+                                                            }}
+                                                            onLoad={() => {
+                                                                console.log('✅ 제품 이미지 로드 성공:', {
+                                                                    productId: selectedProduct.id,
+                                                                    productName: selectedProduct.productName,
+                                                                    imageUrlLength: imageUrl.length,
+                                                                    hasProductImageUrl: !!selectedProduct.productImageUrl,
+                                                                    hasProductImage: !!selectedProduct.productImage,
+                                                                    hasProductImageExtra: !!selectedProduct.productImageExtra
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <div className="text-center py-8 bg-slate-800/50 rounded-lg border border-slate-600">
+                                                        <p className="text-gray-400">
+                                                            {productImageError ? '이미지를 불러올 수 없습니다.' : '제품 이미지가 없습니다.'}
+                                                        </p>
+                                                        {productImageError && (
+                                                            <p className="text-xs text-gray-500 mt-2">
+                                                                이미지 URL: {imageUrl ? `${imageUrl.substring(0, 50)}...` : '없음'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                        })()
+                                    )}
+                                </div>
+
+                                {/* 버튼 */}
+                                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+                                    {isEditingProduct ? (
+                                        <>
+                                            <button
+                                                onClick={handleCancelEditProduct}
+                                                disabled={savingProduct}
+                                                className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                취소
+                                            </button>
+                                            <button
+                                                onClick={handleSaveProduct}
+                                                disabled={savingProduct}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {savingProduct && (
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                )}
+                                                저장
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                setShowProductDetail(false);
+                                                setSelectedProduct(null);
+                                                setIsEditingProduct(false);
+                                                setEditingProductData(null);
+                                                setProductImageError(false);
+                                            }}
+                                            className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors"
+                                        >
+                                            닫기
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

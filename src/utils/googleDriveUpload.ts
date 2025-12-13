@@ -47,17 +47,44 @@ export const uploadToGoogleDrive = async (
     );
     
     if (!response.ok) {
-      throw new Error(`Drive 업로드 실패: ${response.status}`);
+      const errorText = await response.text();
+      let errorMessage = `Drive 업로드 실패: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error?.message || errorMessage;
+      } catch (e) {
+        errorMessage = errorText || errorMessage;
+      }
+      console.error('❌ Google Drive 업로드 오류 상세:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorMessage
+      });
+      throw new Error(errorMessage);
     }
     
     const result = await response.json();
     
+    console.log('📤 Google Drive API 응답:', result);
+    
+    if (!result || !result.id) {
+      throw new Error('Google Drive API에서 파일 ID를 받지 못했습니다.');
+    }
+    
     // 5. 파일을 공개로 설정
     await makeFilePublic(result.id, accessToken);
     
-    console.log('✅ Google Drive 업로드 성공:', result);
+    // DriveUploadResult 인터페이스에 맞게 변환
+    const uploadResult: DriveUploadResult = {
+      fileId: result.id,
+      webViewLink: result.webViewLink || `https://drive.google.com/file/d/${result.id}/view`,
+      webContentLink: result.webContentLink || '',
+      thumbnailLink: result.thumbnailLink || ''
+    };
     
-    return result;
+    console.log('✅ Google Drive 업로드 성공:', uploadResult);
+    
+    return uploadResult;
     
   } catch (error) {
     console.error('❌ Google Drive 업로드 오류:', error);
@@ -66,48 +93,70 @@ export const uploadToGoogleDrive = async (
 };
 
 /**
- * 폴더 찾기 또는 생성
+ * 폴더 찾기 또는 생성 (중첩된 폴더 구조 지원)
  */
 const findOrCreateFolder = async (
-  folderName: string,
+  folderPath: string,
   accessToken: string
 ): Promise<string> => {
   try {
-    // 폴더 검색
-    const searchResponse = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
+    // 폴더 경로를 슬래시로 분리
+    const folderNames = folderPath.split('/').filter(name => name.trim() !== '');
     
-    const searchResult = await searchResponse.json();
-    
-    // 폴더가 있으면 반환
-    if (searchResult.files && searchResult.files.length > 0) {
-      return searchResult.files[0].id;
+    if (folderNames.length === 0) {
+      throw new Error('폴더 경로가 올바르지 않습니다.');
     }
     
-    // 폴더가 없으면 생성
-    const createResponse = await fetch(
-      'https://www.googleapis.com/drive/v3/files',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: folderName,
-          mimeType: 'application/vnd.google-apps.folder'
-        })
-      }
-    );
+    let currentParentId = 'root'; // 루트 폴더에서 시작
     
-    const createResult = await createResponse.json();
-    return createResult.id;
+    // 각 폴더를 순차적으로 찾거나 생성
+    for (const folderName of folderNames) {
+      // 현재 부모 폴더 내에서 폴더 검색
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '${currentParentId}' in parents`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      );
+      
+      const searchResult = await searchResponse.json();
+      
+      // 폴더가 있으면 ID 사용
+      if (searchResult.files && searchResult.files.length > 0) {
+        currentParentId = searchResult.files[0].id;
+        console.log(`✅ 폴더 찾음: "${folderName}" (ID: ${currentParentId})`);
+      } else {
+        // 폴더가 없으면 생성
+        const createResponse = await fetch(
+          'https://www.googleapis.com/drive/v3/files',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: folderName,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [currentParentId]
+            })
+          }
+        );
+        
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json().catch(() => ({}));
+          throw new Error(`폴더 생성 실패: ${folderName} - ${errorData.error?.message || createResponse.statusText}`);
+        }
+        
+        const createResult = await createResponse.json();
+        currentParentId = createResult.id;
+        console.log(`✅ 폴더 생성됨: "${folderName}" (ID: ${currentParentId})`);
+      }
+    }
+    
+    return currentParentId; // 마지막 폴더의 ID 반환
     
   } catch (error) {
     console.error('폴더 찾기/생성 오류:', error);
@@ -147,5 +196,41 @@ const makeFilePublic = async (
  */
 export const getDirectImageUrl = (fileId: string): string => {
   return `https://drive.google.com/uc?export=view&id=${fileId}`;
+};
+
+/**
+ * Google Drive 파일 URL에서 파일 ID만 추출
+ */
+export const extractFileId = (fileUrl: string): string => {
+  if (!fileUrl) return '';
+  
+  // 이미 전체 URL인 경우 파일 ID 추출
+  if (fileUrl.includes('drive.google.com/file/d/')) {
+    const match = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  
+  // 이미 파일 ID만 있는 경우 그대로 반환
+  return fileUrl;
+};
+
+/**
+ * Google Drive 파일 다운로드 URL 생성
+ */
+export const getFileDownloadUrl = (fileUrl: string): string => {
+  const fileId = extractFileId(fileUrl);
+  if (!fileId) return '';
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
+};
+
+/**
+ * Google Drive 파일 보기 URL 생성
+ */
+export const getFileViewUrl = (fileUrl: string): string => {
+  const fileId = extractFileId(fileUrl);
+  if (!fileId) return '';
+  return `https://drive.google.com/file/d/${fileId}/view`;
 };
 

@@ -20,8 +20,9 @@ const decodeBase64Image = (base64String: string): string => {
   if (base64String.startsWith('data:image')) {
     return base64String;
   }
-  // 아니면 data:image 헤더 추가
-  return `data:image/png;base64,${base64String}`;
+  // Base64 문자열만 있는 경우 data:image/jpeg;base64, 헤더 추가
+  // productImage와 productImageExtra는 JPEG 형식으로 저장됨
+  return `data:image/jpeg;base64,${base64String}`;
 };
 
 export default function Products() {
@@ -213,41 +214,113 @@ export default function Products() {
           return;
         }
         
-        // 헤더 확인 (타임스탬프, id, productName, category, description, specification, productImage, productImageExtra)
+        // 헤더 확인
+        // 실제 Google Sheets 구조: A: id, B: productName, C: category, D: description, E: specification, F: productImage, G: productImageExtra, H: updatedAt
         const headers = rows[0];
         console.log('📋 스프레드시트 헤더:', headers);
         console.log('📊 총 컬럼 수:', headers.length);
         
+        // 헤더가 있는지 확인 (첫 번째 행이 헤더인지)
+        const firstRow = rows[0];
+        const hasHeader = firstRow && firstRow.some((cell: string) => 
+          typeof cell === 'string' && (
+            cell.toLowerCase().includes('id') ||
+            cell.toLowerCase().includes('name') ||
+            cell.toLowerCase().includes('product')
+          )
+        ) && !firstRow[0]?.toString().startsWith('product_');
+        
+        // 헤더 기반으로 컬럼 인덱스 찾기
+        const getColumnIndex = (columnName: string, defaultIndex: number): number => {
+          if (!hasHeader) {
+            return defaultIndex;
+          }
+          const index = firstRow.findIndex((h: string) => 
+            h && typeof h === 'string' && h.toLowerCase().includes(columnName.toLowerCase())
+          );
+          return index !== -1 ? index : defaultIndex;
+        };
+        
         // 데이터 파싱 (헤더 제외)
-        const products = rows.slice(1).map((values, index) => {
-          // CSV 컬럼: 타임스탬프, id, productName, category, description, specification, productImage, productImageExtra
-          const timestamp = values[0] || '';
-          const id = values[1] || '';
-          const productName = values[2] || '';
-          const category = values[3] || '';
-          const description = values[4] || '';
-          const specification = values[5] || '';
-          const productImage = values[6] || '';
-          const productImageExtra = values[7] || ''; // 8번째 컬럼
+        const dataRows = hasHeader ? rows.slice(1) : rows;
+        const products = dataRows.map((values, index) => {
+          // 실제 컬럼 구조: A: id, B: productName, C: category, D: description, E: specification, F: productImage, G: productImageExtra, H: updatedAt
+          const idIndex = getColumnIndex('id', 0);
+          const productNameIndex = getColumnIndex('productname', 1);
+          const categoryIndex = getColumnIndex('category', 2);
+          const descriptionIndex = getColumnIndex('description', 3);
+          const specificationIndex = getColumnIndex('specification', 4);
+          const productImageIndex = getColumnIndex('productimage', 5);  // F 컬럼
+          const productImageExtraIndex = getColumnIndex('productimageextra', 6);  // G 컬럼
+          const updatedAtIndex = getColumnIndex('updatedat', 7);
+          
+          const id = values[idIndex] || '';
+          const productName = values[productNameIndex] || '';
+          const category = values[categoryIndex] || '';
+          const description = values[descriptionIndex] || '';
+          const specification = values[specificationIndex] || '';
+          const productImage = values[productImageIndex] || '';
+          const productImageExtra = values[productImageExtraIndex] || '';
           
           console.log(`\n🔍 제품 ${index + 1} (ID: ${id}):`, { 
-            timestamp,
+            id,
             productName, 
             category, 
             descLength: description.length, 
             specLength: specification.length, 
             imageLength: productImage.length,
             imageExtraLength: productImageExtra.length,
-            imagePreview: productImage.substring(0, 50)
+            imagePreview: productImage.substring(0, 50),
+            컬럼인덱스: {
+              id: idIndex,
+              productName: productNameIndex,
+              category: categoryIndex,
+              description: descriptionIndex,
+              specification: specificationIndex,
+              productImage: productImageIndex,
+              productImageExtra: productImageExtraIndex,
+              updatedAt: updatedAtIndex
+            }
           });
           
           // 이미지 처리: productImage와 productImageExtra를 합쳐서 완전한 base64 이미지 생성
           let imageUrl = speakerImage; // 기본 이미지
-          if (productImage && productImage.length > 10) {
-            // productImageExtra가 있으면 합치기
-            const fullBase64 = productImageExtra ? productImage + productImageExtra : productImage;
-            imageUrl = decodeBase64Image(fullBase64);
-            console.log(`  → 이미지 합침: ${productImage.length} + ${productImageExtra.length} = ${fullBase64.length}자`);
+          
+          // productImage와 productImageExtra를 합치기
+          const productImageClean = productImage ? productImage.trim() : '';
+          const productImageExtraClean = productImageExtra ? productImageExtra.trim() : '';
+          
+          console.log(`  📸 이미지 데이터 확인:`, {
+            productImageIndex,
+            productImageExtraIndex,
+            productImageLength: productImageClean.length,
+            productImageExtraLength: productImageExtraClean.length,
+            productImagePreview: productImageClean.substring(0, 50),
+            productImageExtraPreview: productImageExtraClean.substring(0, 50),
+            hasProductImage: !!productImageClean,
+            hasProductImageExtra: !!productImageExtraClean
+          });
+          
+          if (productImageClean && productImageClean.length > 10) {
+            // productImage와 productImageExtra를 합치기
+            const fullBase64 = productImageClean + productImageExtraClean;
+            
+            if (fullBase64.length > 0) {
+              // 이미 data:image 접두사가 있는지 확인
+              if (fullBase64.startsWith('data:image')) {
+                imageUrl = fullBase64;
+                console.log(`  ✅ 이미지 URL (이미 접두사 포함): ${fullBase64.substring(0, 60)}...`);
+              } else {
+                // Base64 문자열만 있는 경우 헤더 추가
+                imageUrl = decodeBase64Image(fullBase64);
+                console.log(`  ✅ 이미지 URL 생성: ${imageUrl.substring(0, 60)}...`);
+              }
+              console.log(`  → 이미지 합침 완료: ${productImageClean.length} + ${productImageExtraClean.length} = ${fullBase64.length}자`);
+            } else {
+              console.warn(`  ⚠️ 이미지 데이터가 비어있습니다.`);
+            }
+          } else {
+            console.warn(`  ⚠️ productImage가 없거나 너무 짧습니다 (길이: ${productImageClean.length}). 기본 이미지를 사용합니다.`);
           }
           
           // 사양 정보 파싱 (쉼표로 구분된 key:value 형식)

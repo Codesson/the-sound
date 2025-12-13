@@ -187,7 +187,7 @@ export default function Questions() {
               value={formData.name}
               onChange={handleInputChange}
               required
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500"
+              className="w-full p-3 border border-gray-600 bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
               placeholder="홍길동"
             />
           </div>
@@ -204,7 +204,7 @@ export default function Questions() {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500"
+              className="w-full p-3 border border-gray-600 bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
               placeholder="example@email.com"
             />
           </div>
@@ -221,7 +221,7 @@ export default function Questions() {
               value={formData.phone}
               onChange={handleInputChange}
               required
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500"
+              className="w-full p-3 border border-gray-600 bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
               placeholder="010-1234-5678"
             />
           </div>
@@ -238,7 +238,7 @@ export default function Questions() {
               onChange={handleInputChange}
               required
               rows={6}
-              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500"
+              className="w-full p-3 border border-gray-600 bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
               placeholder="문의하실 내용을 상세히 적어주세요"
             />
           </div>
@@ -261,7 +261,7 @@ export default function Questions() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full py-3 px-4 border border-gray-600 bg-gray-800 rounded-md text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 이미지 선택하기
               </button>
@@ -306,7 +306,7 @@ export default function Questions() {
                 name="privacy"
                 type="checkbox"
                 required
-                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-600 bg-gray-800 rounded mt-1"
               />
               <label htmlFor="privacy" className="ml-3 text-sm text-gray-800">
                 <span>
