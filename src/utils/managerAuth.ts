@@ -135,6 +135,15 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
       fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:119',message:'OAuth 클라이언트 초기화 전 현재 페이지 정보',data:{origin:currentOrigin,href:currentHref},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
     }
     // #endregion
+    // #region agent log
+    console.log('🔍 [DEBUG] OAuth 클라이언트 초기화 상세 정보:', {
+      clientId: clientId ? `${clientId.substring(0, 30)}...` : 'N/A',
+      clientIdLength: clientId?.length || 0,
+      origin: currentOrigin,
+      href: currentHref,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
+    });
+    // #endregion
     const client = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
@@ -179,7 +188,38 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
           // #endregion
           let errorMessage = '액세스 토큰을 받지 못했습니다.';
           if (response.error === 'redirect_uri_mismatch') {
-            errorMessage = `리디렉션 URI 불일치 오류입니다.\n\n현재 도메인: ${currentOrigin}\n\nGoogle Cloud Console에서 다음을 확인하세요:\n1. API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID\n2. "승인된 JavaScript 원본"에 다음을 추가:\n   - ${currentOrigin}\n   - http://localhost:4000 (개발용)\n\n현재 페이지: ${currentHref}`;
+            const errorDetails = response.error_description || '알 수 없는 오류';
+            const fullClientId = clientId || 'N/A';
+            const clientIdPreview = fullClientId !== 'N/A' ? `${fullClientId.substring(0, 30)}...` : 'N/A';
+            
+            errorMessage = `❌ Google OAuth 리디렉션 URI 불일치 오류\n\n` +
+              `현재 도메인: ${currentOrigin}\n` +
+              `클라이언트 ID: ${clientIdPreview}\n` +
+              `에러 상세: ${errorDetails}\n\n` +
+              `🔧 해결 방법:\n` +
+              `1. Google Cloud Console 접속: https://console.cloud.google.com/\n` +
+              `2. API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID\n` +
+              `3. 클라이언트 ID "${clientIdPreview}" 선택 (환경변수와 일치하는지 확인)\n` +
+              `4. "승인된 JavaScript 원본" 섹션 확인\n` +
+              `5. 다음을 정확히 추가 (경로 제외, 각각 별도 줄):\n` +
+              `   ✅ ${currentOrigin}\n` +
+              `   ✅ http://localhost:4000 (개발용)\n\n` +
+              `⚠️ 중요 체크리스트:\n` +
+              `   □ 경로를 포함하지 않았는지 확인 (${currentOrigin}/the-sound ❌)\n` +
+              `   □ 프로토콜을 포함했는지 확인 (https:// 필수)\n` +
+              `   □ 저장 후 2-5분 대기했는지 확인\n` +
+              `   □ 브라우저 캐시를 삭제했는지 확인\n` +
+              `   □ 올바른 클라이언트 ID를 선택했는지 확인\n\n` +
+              `현재 페이지: ${currentHref}`;
+            console.error('🔍 [DEBUG] redirect_uri_mismatch 상세 정보:', {
+              currentOrigin,
+              currentHref,
+              errorDescription: response.error_description,
+              errorUri: response.error_uri,
+              clientId: clientIdPreview,
+              clientIdFull: fullClientId,
+              allOrigins: typeof window !== 'undefined' ? [window.location.origin, window.location.hostname, window.location.host].join(', ') : 'N/A'
+            });
           } else if (response.error) {
             errorMessage = `OAuth 오류: ${response.error}\n${response.error_description || ''}`;
           }
