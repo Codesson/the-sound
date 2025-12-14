@@ -10,8 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # Environment Secrets를 사용하는 경우 environment 지정 필요
-    environment: github-pages  # Environment 이름 (Settings → Environments에서 생성)
+    # Repository Secrets 사용 (environment 제거)
+    env:
+      # Job 레벨에서 환경변수 설정 (모든 단계에서 접근 가능)
+      REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+      REACT_APP_MANAGER_EMAILS: ${{ secrets.REACT_APP_MANAGER_EMAILS }}
+      REACT_APP_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.REACT_APP_GOOGLE_APPS_SCRIPT_URL }}
+      REACT_APP_PORTFOLIO_SPREADSHEET_ID: ${{ secrets.REACT_APP_PORTFOLIO_SPREADSHEET_ID }}
+      REACT_APP_PRODUCTS_SPREADSHEET_ID: ${{ secrets.REACT_APP_PRODUCTS_SPREADSHEET_ID }}
+      REACT_APP_SUPPORT_SPREADSHEET_ID: ${{ secrets.REACT_APP_SUPPORT_SPREADSHEET_ID }}
+      REACT_APP_PORTFOLIO_SHEET_GID: ${{ secrets.REACT_APP_PORTFOLIO_SHEET_GID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -23,21 +31,35 @@ jobs:
 
       - name: Install Dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Debug Environment Variables
+        run: |
+          echo "🔍 환경변수 확인:"
+          echo "REACT_APP_GOOGLE_CLIENT_ID 존재: $([ -n "$REACT_APP_GOOGLE_CLIENT_ID" ] && echo 'true' || echo 'false')"
+          echo "REACT_APP_MANAGER_EMAILS 존재: $([ -n "$REACT_APP_MANAGER_EMAILS" ] && echo 'true' || echo 'false')"
+          if [ -n "$REACT_APP_GOOGLE_CLIENT_ID" ]; then
+            echo "REACT_APP_GOOGLE_CLIENT_ID 길이: ${#REACT_APP_GOOGLE_CLIENT_ID}"
+            echo "REACT_APP_GOOGLE_CLIENT_ID 첫 10자: ${REACT_APP_GOOGLE_CLIENT_ID:0:10}..."
+          else
+            echo "❌ REACT_APP_GOOGLE_CLIENT_ID가 설정되지 않았습니다!"
+          fi
+
       - name: Build
         run: yarn build
         env:
           CI: false # Prevent treating warnings as errors
-          # Repository Secrets 사용 (기본)
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
-          REACT_APP_MANAGER_EMAILS: ${{ secrets.REACT_APP_MANAGER_EMAILS }}
-          REACT_APP_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.REACT_APP_GOOGLE_APPS_SCRIPT_URL }}
-          REACT_APP_PORTFOLIO_SPREADSHEET_ID: ${{ secrets.REACT_APP_PORTFOLIO_SPREADSHEET_ID }}
-          REACT_APP_PRODUCTS_SPREADSHEET_ID: ${{ secrets.REACT_APP_PRODUCTS_SPREADSHEET_ID }}
-          REACT_APP_SUPPORT_SPREADSHEET_ID: ${{ secrets.REACT_APP_SUPPORT_SPREADSHEET_ID }}
-          REACT_APP_PORTFOLIO_SHEET_GID: ${{ secrets.REACT_APP_PORTFOLIO_SHEET_GID }}
-          # Environment Secrets를 사용하는 경우 아래 주석 해제하고 위의 secrets 대신 사용
-          # REACT_APP_GOOGLE_CLIENT_ID: ${{ env.REACT_APP_GOOGLE_CLIENT_ID }}
-          # REACT_APP_MANAGER_EMAILS: ${{ env.REACT_APP_MANAGER_EMAILS }}
+          # 환경변수는 job 레벨에서 상속됨
+
+      - name: Verify Build Contains Environment Variables
+        run: |
+          echo "🔍 빌드된 파일에서 환경변수 확인:"
+          if grep -r "REACT_APP_GOOGLE_CLIENT_ID" build/static/js/*.js 2>/dev/null | head -1; then
+            echo "✅ 환경변수가 빌드에 포함되었습니다"
+          else
+            echo "❌ 환경변수가 빌드에 포함되지 않았습니다!"
+            exit 1
+          fi
+
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
