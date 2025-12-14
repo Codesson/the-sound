@@ -423,7 +423,7 @@ export default function Portfolio() {
             {caseList.map((item) => (
               <div
                 key={item.id}
-                className="relative group cursor-pointer overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                className="relative group cursor-pointer overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300"
                 onClick={() => handleImageClick(item)}
               >
                 {/* 이미지 */}
@@ -490,31 +490,23 @@ export default function Portfolio() {
                     </div>
                     
                     {/* 메인 이미지 */}
-                    <div className="my-12">
-                      {selectedCase.mainImage ? (
+                    {selectedCase.mainImage && (
+                      <div className="my-12">
                         <img 
                           src={selectedCase.mainImage} 
                           alt={selectedCase.alt} 
                           className="w-full h-auto rounded-lg shadow-lg"
                           onError={handleImageError}
                         />
-                      ) : (
-                        <div className="w-full h-64 flex flex-col items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-dashed border-gray-400">
-                          <svg className="w-20 h-20 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <p className="text-gray-500 text-lg font-medium">이미지 없음</p>
-                          <p className="text-gray-400 text-sm mt-2">대표 이미지가 등록되지 않았습니다</p>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     
                     {/* 프로젝트 설명 */}
                     <h3 className="text-2xl font-semibold mt-12 mb-6 text-left">프로젝트 개요</h3>
                     <p className="mb-12 text-lg leading-relaxed text-left">{selectedCase.description}</p>
                     
                     {/* 첫 번째 상세 이미지 */}
-                    {selectedCase.detailImages.length > 0 ? (
+                    {selectedCase.detailImages.length > 0 && (
                       <div className="my-12">
                         <img 
                           src={selectedCase.detailImages[0]} 
@@ -524,15 +516,6 @@ export default function Portfolio() {
                           onError={handleImageError}
                         />
                         <p className="text-sm text-gray-500 mt-2 italic text-left">이미지를 클릭하면 확대해서 볼 수 있습니다</p>
-                      </div>
-                    ) : (
-                      <div className="my-12">
-                        <div className="w-full h-48 flex flex-col items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg border-2 border-dashed border-gray-400">
-                          <svg className="w-16 h-16 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <p className="text-gray-500 text-sm font-medium">상세 이미지 없음</p>
-                        </div>
                       </div>
                     )}
                     

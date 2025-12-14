@@ -94,7 +94,7 @@ export default function Spec() {
               <div className="space-y-3 sm:space-y-4 flex-1 flex flex-col justify-center">
                 {COMPANY_SPEC.map(({ label, value }, index) => (
                   <div key={index} className="flex flex-col sm:flex-row items-start py-2 sm:py-3 border-b border-gray-700 last:border-b-0 gap-2 sm:gap-0">
-                    <div className="w-full sm:w-28 lg:w-32 flex-shrink-0">
+                    <div className="w-full sm:w-28 lg:w-32 flex-shrink-0 text-left">
                       <span className="text-xs sm:text-sm font-semibold text-gray-300 bg-gray-700 px-2 sm:px-3 py-1 rounded-full inline-block">
                         {label}
                       </span>

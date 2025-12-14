@@ -177,7 +177,7 @@ export default function Questions() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 이름 입력 */}
           <div>
-            <label htmlFor="name" className="block mb-2 font-medium text-gray-800">
+            <label htmlFor="name" className="block mb-2 font-medium text-gray-200 text-left">
               이름 <span className="text-red-500">*</span>
             </label>
             <input
@@ -194,7 +194,7 @@ export default function Questions() {
 
           {/* 이메일 입력 */}
           <div>
-            <label htmlFor="email" className="block mb-2 font-medium text-gray-800">
+            <label htmlFor="email" className="block mb-2 font-medium text-gray-200 text-left">
               이메일 <span className="text-red-500">*</span>
             </label>
             <input
@@ -211,7 +211,7 @@ export default function Questions() {
 
           {/* 연락처 입력 */}
           <div>
-            <label htmlFor="phone" className="block mb-2 font-medium text-gray-800">
+            <label htmlFor="phone" className="block mb-2 font-medium text-gray-200 text-left">
               연락처 <span className="text-red-500">*</span>
             </label>
             <input
@@ -228,7 +228,7 @@ export default function Questions() {
 
           {/* 문의 내용 */}
           <div>
-            <label htmlFor="message" className="block mb-2 font-medium text-gray-800">
+            <label htmlFor="message" className="block mb-2 font-medium text-gray-200 text-left">
               문의 내용 <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -245,7 +245,7 @@ export default function Questions() {
 
           {/* 이미지 업로드 */}
           <div>
-            <label htmlFor="image" className="block mb-2 font-medium text-gray-800">
+            <label htmlFor="image" className="block mb-2 font-medium text-gray-200 text-left">
               이미지 첨부 (선택사항)
             </label>
             <div className="flex flex-col space-y-4">
@@ -308,7 +308,7 @@ export default function Questions() {
                 required
                 className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-600 bg-gray-800 rounded mt-1"
               />
-              <label htmlFor="privacy" className="ml-3 text-sm text-gray-800">
+              <label htmlFor="privacy" className="ml-3 text-sm text-gray-200">
                 <span>
                   개인정보 수집 및 이용에 동의합니다. 수집된 정보는 문의 답변 목적으로만 사용됩니다.{" "}
                   <span className="text-red-500">*</span>
@@ -330,60 +330,6 @@ export default function Questions() {
             </button>
           </div>
         </form>
-
-        {/* 추가 연락처 정보 */}
-        <div className="mt-16 border-t pt-12">
-          <h2 className="text-2xl font-bold mb-6">다른 방법으로 문의하기</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="flex flex-col items-center p-6 bg-gray-50 rounded-lg">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                fill="currentColor"
-                className="mb-4 text-blue-600"
-                viewBox="0 0 16 16"
-              >
-                <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105V5.383zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z" />
-              </svg>
-              <h3 className="text-lg font-medium mb-2">이메일</h3>
-              <p className="text-gray-800 text-center">lundella@naver.com</p>
-            </div>
-
-            <div className="flex flex-col items-center p-6 bg-gray-50 rounded-lg">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                fill="currentColor"
-                className="mb-4 text-blue-600"
-                viewBox="0 0 16 16"
-              >
-                <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328zM1.884.511a1.745 1.745 0 0 1 2.612.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.678.678 0 0 0 .178.643l2.457 2.457a.678.678 0 0 0 .644.178l2.189-.547a1.745 1.745 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.634 18.634 0 0 1-7.01-4.42 18.634 18.634 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877L1.885.511z" />
-              </svg>
-              <h3 className="text-lg font-medium mb-2">전화</h3>
-              <p className="text-gray-800 text-center">02-123-4567</p>
-            </div>
-
-            <div className="flex flex-col items-center p-6 bg-gray-50 rounded-lg">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                fill="currentColor"
-                className="mb-4 text-blue-600"
-                viewBox="0 0 16 16"
-              >
-                <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" />
-              </svg>
-              <h3 className="text-lg font-medium mb-2">주소</h3>
-              <p className="text-gray-800 text-center">
-                서울특별시 강남구 테헤란로 123<br />
-                더사운드 빌딩 5층
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

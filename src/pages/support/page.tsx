@@ -361,7 +361,7 @@ export default function Support() {
                   {currentItems.map((item, index) => (
                     <tr key={item.id} className="hover:bg-gray-700 transition-colors duration-150">
                       <td className="px-6 py-5 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-300">{item.id}</div>
+                        <div className="text-sm font-medium text-gray-300">{(currentPage - 1) * itemsPerPage + index + 1}</div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-200">{item.title}</div>
@@ -411,7 +411,7 @@ export default function Support() {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-medium text-gray-400 bg-gray-600 px-2 py-1 rounded">
-                        #{item.id}
+                        #{(currentPage - 1) * itemsPerPage + index + 1}
                       </span>
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(item.category)}`}>
                         {item.category}

@@ -1366,6 +1366,37 @@ export default function Manager() {
         }
     }, [currentView]);
 
+    // 모달이 열릴 때 배경 스크롤 방지
+    useEffect(() => {
+        if (showProductDetail) {
+            // body 스크롤 방지
+            document.body.style.overflow = 'hidden';
+            // 모달 내부 스크롤 이벤트가 배경으로 전파되지 않도록 처리
+            const handleWheel = (e: WheelEvent) => {
+                const target = e.target as HTMLElement;
+                const modalContent = target.closest('.modal-content-wrapper');
+                if (!modalContent) {
+                    e.preventDefault();
+                }
+            };
+            const handleTouchMove = (e: TouchEvent) => {
+                const target = e.target as HTMLElement;
+                const modalContent = target.closest('.modal-content-wrapper');
+                if (!modalContent) {
+                    e.preventDefault();
+                }
+            };
+            window.addEventListener('wheel', handleWheel, { passive: false });
+            window.addEventListener('touchmove', handleTouchMove, { passive: false });
+            
+            return () => {
+                document.body.style.overflow = '';
+                window.removeEventListener('wheel', handleWheel);
+                window.removeEventListener('touchmove', handleTouchMove);
+            };
+        }
+    }, [showProductDetail]);
+
     return (
         <div className="min-h-screen bg-slate-900">
             <div className="flex justify-center items-start h-screen pt-24">
@@ -3020,7 +3051,11 @@ export default function Manager() {
                             }
                         }}
                     />
-                    <div className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto pt-8">
+                    <div 
+                        className="absolute inset-0 flex items-start justify-center p-4 overflow-y-auto pt-8 modal-content-wrapper"
+                        onWheel={(e) => e.stopPropagation()}
+                        onTouchMove={(e) => e.stopPropagation()}
+                    >
                         <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl my-4">
                             <div className="flex items-center justify-between p-6 border-b border-slate-700">
                                 <h3 className="text-2xl font-bold text-white">제품 상세</h3>

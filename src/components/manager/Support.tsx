@@ -253,9 +253,9 @@ export default function Support() {
                                 <tbody className="bg-slate-800/30 divide-y divide-slate-700">
                                     {supportItems
                                         .slice((currentSupportPage - 1) * supportItemsPerPage, currentSupportPage * supportItemsPerPage)
-                                        .map((item) => (
+                                        .map((item, index) => (
                                             <tr key={item.id} className="hover:bg-slate-700/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{item.id}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{(currentSupportPage - 1) * supportItemsPerPage + index + 1}</td>
                                                 <td className="px-6 py-4 text-sm text-white font-medium">{item.title}</td>
                                                 <td className="px-6 py-4 text-sm text-gray-400 max-w-xs truncate">{item.desc}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
