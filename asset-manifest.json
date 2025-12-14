@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/the-sound/static/css/main.5aac7822.css",
-    "main.js": "/the-sound/static/js/main.255307a5.js",
+    "main.css": "/the-sound/static/css/main.982f6a7a.css",
+    "main.js": "/the-sound/static/js/main.545a00ab.js",
     "static/js/453.73cd828a.chunk.js": "/the-sound/static/js/453.73cd828a.chunk.js",
     "static/media/audience.jpg": "/the-sound/static/media/audience.44bb39c5b2bd11c8259b.jpg",
     "static/media/example1.jpg": "/the-sound/static/media/example1.d80aca649f9da4fb6ca1.jpg",
@@ -12,12 +12,12 @@
     "static/media/insurance.png": "/the-sound/static/media/insurance.56a82ca03661aae40639.png",
     "static/media/wave-sound.png": "/the-sound/static/media/wave-sound.9d829835bf9375a8dbdd.png",
     "index.html": "/the-sound/index.html",
-    "main.5aac7822.css.map": "/the-sound/static/css/main.5aac7822.css.map",
-    "main.255307a5.js.map": "/the-sound/static/js/main.255307a5.js.map",
+    "main.982f6a7a.css.map": "/the-sound/static/css/main.982f6a7a.css.map",
+    "main.545a00ab.js.map": "/the-sound/static/js/main.545a00ab.js.map",
     "453.73cd828a.chunk.js.map": "/the-sound/static/js/453.73cd828a.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.5aac7822.css",
-    "static/js/main.255307a5.js"
+    "static/css/main.982f6a7a.css",
+    "static/js/main.545a00ab.js"
   ]
 }
