@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/the-sound/static/css/main.5aac7822.css",
-    "main.js": "/the-sound/static/js/main.081e13ce.js",
+    "main.js": "/the-sound/static/js/main.c97a729f.js",
     "static/js/453.73cd828a.chunk.js": "/the-sound/static/js/453.73cd828a.chunk.js",
     "static/media/audience.jpg": "/the-sound/static/media/audience.44bb39c5b2bd11c8259b.jpg",
     "static/media/example1.jpg": "/the-sound/static/media/example1.d80aca649f9da4fb6ca1.jpg",
@@ -13,11 +13,11 @@
     "static/media/wave-sound.png": "/the-sound/static/media/wave-sound.9d829835bf9375a8dbdd.png",
     "index.html": "/the-sound/index.html",
     "main.5aac7822.css.map": "/the-sound/static/css/main.5aac7822.css.map",
-    "main.081e13ce.js.map": "/the-sound/static/js/main.081e13ce.js.map",
+    "main.c97a729f.js.map": "/the-sound/static/js/main.c97a729f.js.map",
     "453.73cd828a.chunk.js.map": "/the-sound/static/js/453.73cd828a.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.5aac7822.css",
-    "static/js/main.081e13ce.js"
+    "static/js/main.c97a729f.js"
   ]
 }
