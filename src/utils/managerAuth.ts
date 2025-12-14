@@ -63,6 +63,7 @@ export const verifyGoogleToken = async (accessToken: string): Promise<{
  */
 export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => void, onError: (error: string) => void) => {
   // #region agent log
+  const isDevelopment = process.env.NODE_ENV === 'development';
   const debugInfo = {
     hasProcessEnv: typeof process !== 'undefined',
     hasProcessEnvEnv: typeof process !== 'undefined' && typeof process.env !== 'undefined',
@@ -71,7 +72,9 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
       : 'N/A'
   };
   console.log('🔍 [DEBUG] initGoogleAuth 진입:', debugInfo);
-  fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:64',message:'initGoogleAuth 함수 진입',data:debugInfo,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  if (isDevelopment) {
+    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:64',message:'initGoogleAuth 함수 진입',data:debugInfo,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  }
   // #endregion
   const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
   // #region agent log
@@ -87,14 +90,18 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
   };
   console.error('🔍 [DEBUG] 환경변수 상태:', clientIdDebug);
   console.error('🔍 [DEBUG] REACT_APP_GOOGLE_CLIENT_ID 값:', clientId || '❌ undefined/null/empty');
-  fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:68',message:'환경변수 읽기 후 값 확인',data:clientIdDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  if (isDevelopment) {
+    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:68',message:'환경변수 읽기 후 값 확인',data:clientIdDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  }
   // #endregion
   
   if (!clientId || clientId === 'your_google_client_id_here') {
     // #region agent log
     const errorReason = !clientId ? 'undefined/null/empty' : clientId === 'your_google_client_id_here' ? 'placeholder' : 'unknown';
     console.error('❌ [DEBUG] 클라이언트 ID 검증 실패:', { clientId, reason: errorReason });
-    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:73',message:'클라이언트 ID 검증 실패 - 에러 발생',data:{clientId:clientId,reason:errorReason},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    if (isDevelopment) {
+      fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:73',message:'클라이언트 ID 검증 실패 - 에러 발생',data:{clientId:clientId,reason:errorReason},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    }
     // #endregion
     onError('Google Client ID가 설정되지 않았습니다.');
     return;
@@ -108,18 +115,38 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
     hasOAuth2: typeof window !== 'undefined' && !!(window as any).google?.accounts?.oauth2
   };
   console.log('🔍 [DEBUG] Google Identity Services 상태:', googleServicesDebug);
-  fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:85',message:'Google Identity Services 확인',data:googleServicesDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  if (isDevelopment) {
+    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:85',message:'Google Identity Services 확인',data:googleServicesDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  }
   // #endregion
   // Google Identity Services 스크립트가 로드되었는지 확인
   if (typeof window !== 'undefined' && (window as any).google) {
     // #region agent log
     console.log('✅ [DEBUG] OAuth 클라이언트 초기화 시작, Client ID 길이:', clientId.length);
-    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:89',message:'OAuth 클라이언트 초기화 시작',data:{clientIdLength:clientId.length,clientIdPrefix:clientId.substring(0,10)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    if (isDevelopment) {
+      fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:89',message:'OAuth 클라이언트 초기화 시작',data:{clientIdLength:clientId.length,clientIdPrefix:clientId.substring(0,10)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+    // #endregion
+    // #region agent log
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'N/A';
+    const currentHref = typeof window !== 'undefined' ? window.location.href : 'N/A';
+    console.log('🔍 [DEBUG] 현재 페이지 정보:', { origin: currentOrigin, href: currentHref });
+    if (isDevelopment) {
+      fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:119',message:'OAuth 클라이언트 초기화 전 현재 페이지 정보',data:{origin:currentOrigin,href:currentHref},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    }
     // #endregion
     const client = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: 'https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file',
       callback: async (response: any) => {
+        // #region agent log
+        if (response.error) {
+          console.error('❌ [DEBUG] OAuth 에러 응답:', response);
+          if (isDevelopment) {
+            fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:122',message:'OAuth 에러 응답',data:{error:response.error,errorDescription:response.error_description,errorUri:response.error_uri},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          }
+        }
+        // #endregion
         if (response.access_token) {
           const verification = await verifyGoogleToken(response.access_token);
           if (verification.isValid && verification.user) {
@@ -139,14 +166,33 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
             onError(verification.error || '토큰 검증에 실패했습니다.');
           }
         } else {
-          onError('액세스 토큰을 받지 못했습니다.');
+          // #region agent log
+          const errorDetails = response.error ? {
+            error: response.error,
+            error_description: response.error_description,
+            error_uri: response.error_uri
+          } : { message: '액세스 토큰이 없습니다' };
+          console.error('❌ [DEBUG] 액세스 토큰 수신 실패:', errorDetails);
+          if (isDevelopment) {
+            fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:142',message:'액세스 토큰 수신 실패',data:errorDetails,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          }
+          // #endregion
+          let errorMessage = '액세스 토큰을 받지 못했습니다.';
+          if (response.error === 'redirect_uri_mismatch') {
+            errorMessage = `리디렉션 URI 불일치 오류입니다.\n\n현재 도메인: ${currentOrigin}\n\nGoogle Cloud Console에서 다음을 확인하세요:\n1. API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID\n2. "승인된 JavaScript 원본"에 다음을 추가:\n   - ${currentOrigin}\n   - http://localhost:4000 (개발용)\n\n현재 페이지: ${currentHref}`;
+          } else if (response.error) {
+            errorMessage = `OAuth 오류: ${response.error}\n${response.error_description || ''}`;
+          }
+          onError(errorMessage);
         }
       }
     });
     
     // #region agent log
     console.log('✅ [DEBUG] 액세스 토큰 요청 전송');
-    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:120',message:'액세스 토큰 요청 전송',data:{hasClient:!!client},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    if (isDevelopment) {
+      fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:120',message:'액세스 토큰 요청 전송',data:{hasClient:!!client},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
     // #endregion
     client.requestAccessToken();
   } else {
@@ -156,7 +202,9 @@ export const initGoogleAuth = (onSuccess: (token: string, user: ManagerUser) => 
       hasGoogle: typeof window !== 'undefined' && !!(window as any).google
     };
     console.error('❌ [DEBUG] Google Identity Services 로드 실패:', errorDebug);
-    fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:125',message:'Google Identity Services 로드 실패',data:errorDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    if (isDevelopment) {
+      fetch('http://127.0.0.1:7242/ingest/91dbcc5f-5d5b-410a-96a2-98889f20ae4d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'managerAuth.ts:125',message:'Google Identity Services 로드 실패',data:errorDebug,timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    }
     // #endregion
     onError('Google Identity Services가 로드되지 않았습니다.');
   }
