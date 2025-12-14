@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: write
     # Environment Secrets를 사용하는 경우 environment 지정 필요
-    # environment: production  # Environment 이름 (Settings → Environments에서 생성)
+    environment: github-pages  # Environment 이름 (Settings → Environments에서 생성)
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -28,16 +28,16 @@ jobs:
         env:
           CI: false # Prevent treating warnings as errors
           # Repository Secrets 사용 (기본)
-          # REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
-          # REACT_APP_MANAGER_EMAILS: ${{ secrets.REACT_APP_MANAGER_EMAILS }}
+          REACT_APP_GOOGLE_CLIENT_ID: ${{ secrets.REACT_APP_GOOGLE_CLIENT_ID }}
+          REACT_APP_MANAGER_EMAILS: ${{ secrets.REACT_APP_MANAGER_EMAILS }}
           REACT_APP_GOOGLE_APPS_SCRIPT_URL: ${{ secrets.REACT_APP_GOOGLE_APPS_SCRIPT_URL }}
           REACT_APP_PORTFOLIO_SPREADSHEET_ID: ${{ secrets.REACT_APP_PORTFOLIO_SPREADSHEET_ID }}
           REACT_APP_PRODUCTS_SPREADSHEET_ID: ${{ secrets.REACT_APP_PRODUCTS_SPREADSHEET_ID }}
           REACT_APP_SUPPORT_SPREADSHEET_ID: ${{ secrets.REACT_APP_SUPPORT_SPREADSHEET_ID }}
           REACT_APP_PORTFOLIO_SHEET_GID: ${{ secrets.REACT_APP_PORTFOLIO_SHEET_GID }}
           # Environment Secrets를 사용하는 경우 아래 주석 해제하고 위의 secrets 대신 사용
-          REACT_APP_GOOGLE_CLIENT_ID: ${{ env.REACT_APP_GOOGLE_CLIENT_ID }}
-          REACT_APP_MANAGER_EMAILS: ${{ env.REACT_APP_MANAGER_EMAILS }}
+          # REACT_APP_GOOGLE_CLIENT_ID: ${{ env.REACT_APP_GOOGLE_CLIENT_ID }}
+          # REACT_APP_MANAGER_EMAILS: ${{ env.REACT_APP_MANAGER_EMAILS }}
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
