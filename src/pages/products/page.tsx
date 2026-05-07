@@ -589,10 +589,10 @@ export default function Products() {
                   <div className="bg-slate-800/20 rounded-lg p-6 border border-slate-700/30 relative overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-500 to-cyan-600"></div>
                     <h6 className="text-lg font-semibold text-white mb-3 pl-4">
-                      MADE IN KOREA
+                      DIRECT INSTALLATION IN KOREA
                     </h6>
                     <p className="text-gray-300 text-sm leading-relaxed pl-4">
-                      국내 직접 생산을 통한 엄격한 품질 관리로 최상의 성능과 신뢰성을 보장합니다.
+                      현장에 맞춘 전문 시공으로 성능과 신뢰를 보장합니다.
                     </p>
                   </div>
                 </div>

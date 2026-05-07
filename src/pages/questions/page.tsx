@@ -157,7 +157,7 @@ export default function Questions() {
   };
 
   return (
-    <div className="flex flex-col items-center py-20 px-4">
+    <div className="flex flex-col items-center py-20 px-4 min-h-[100vh] bg-slate-900 text-white">
       <h1 className="text-center text-4xl mb-2">문의하기</h1>
       <div className="sub-title mb-12 text-xl text-center">
         궁금한 점이나 상담이 필요하시면 언제든지 문의해주세요

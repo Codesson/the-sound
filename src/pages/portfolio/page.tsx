@@ -405,7 +405,7 @@ export default function Portfolio() {
   };
 
   return (
-    <div className="flex flex-col items-center pb-20">
+    <div className="flex flex-col items-center pb-20 pt-[80px] min-h-[100vh] bg-slate-900 text-white">
       <h1 className="text-center text-4xl mt-20">시공사례</h1>
       <div className="sub-title my-4 text-xl text-center">납품 및 시공실적</div>
       {isLoading ? (

@@ -31,12 +31,18 @@ const AUTHORIZED_MANAGER_EMAIL = 'your-manager-email@gmail.com'; // 실제 매�
 7. 저장 후 계속
 ```
 
-**2.2 승인된 JavaScript 원본 설정**
+**2.2 승인된 JavaScript 원본 설정 (중요!)**
 ```
 API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID
-승인된 JavaScript 원본에 추가:
+승인된 JavaScript 원본에 다음을 정확히 추가 (경로 제외, 프로토콜 포함):
 - http://localhost:4000
 - https://codessone.github.io
+
+⚠️ 주의사항:
+- 경로를 포함하지 마세요 (예: ❌ https://codessone.github.io/the-sound)
+- 프로토콜(http:// 또는 https://)을 포함해야 합니다
+- 포트 번호가 있으면 포함해야 합니다 (예: http://localhost:4000)
+- 각 원본은 별도의 줄에 하나씩 추가하세요
 ```
 
 ### 3. 환경 변수 설정

@@ -244,7 +244,8 @@ export default function Support() {
   };
 
   return (
-    <div className="bg-gray-900 max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8 relative">
+    <div className="min-h-[100vh] bg-slate-900 pt-[80px]">
+      <div className="max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8 relative">
       <h1 className="text-4xl font-bold text-center mb-8 text-white">자료실</h1>
       <p className="text-center text-lg text-gray-400 mb-12">
         더사운드의 공식 자료와 문서를 확인하실 수 있습니다.
@@ -392,9 +393,7 @@ export default function Support() {
                               </svg>
                               다운로드
                             </a>
-                          ) : (
-                            <span className="text-sm text-gray-500">문서 없음</span>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -445,9 +444,7 @@ export default function Support() {
                         </svg>
                         다운로드
                       </a>
-                    ) : (
-                      <span className="text-xs text-gray-500">문서 없음</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -497,6 +494,7 @@ export default function Support() {
           </nav>
         </div>
       )}
+      </div>
     </div>
   );
 }
